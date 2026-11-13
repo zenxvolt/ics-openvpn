@@ -68,11 +68,6 @@ jobs:
         with:
           packages: platform-tools
 
-      - name: Install project SDK, NDK and CMake
-        run: |
-          # Match main/build.gradle.kts. channel=3 also permits an explicitly pinned preview NDK.
-          sdkmanager --channel=3 "platforms;android-37" "ndk;30.0.14904198" "cmake;3.22.1"
-
       - name: Check log and tile regressions
         run: python3 tools/check_regressions.py
 
