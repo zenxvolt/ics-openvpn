@@ -180,7 +180,7 @@ public class FileSelect extends BaseActivity {
 			fe =e;
 		}
 		if(fe!=null) {
-			AlertDialog.Builder ab = new AlertDialog.Builder(this);
+			AlertDialog.Builder ab = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this);
 			ab.setTitle(R.string.error_importing_file);
 			ab.setMessage(getString(R.string.import_error_message) + "\n" + fe.getLocalizedMessage());
 			ab.setPositiveButton(android.R.string.ok, null);

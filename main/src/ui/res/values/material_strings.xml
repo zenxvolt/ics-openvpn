@@ -1,0 +1,4 @@
+<resources>
+    <string name="qs_syncing">Synchronizing VPN status…</string>
+    <string name="vpn_choose_profile">Choose a profile to connect</string>
+</resources>

@@ -4,7 +4,7 @@
  */
 package de.blinkt.openvpn.activities
 
-import android.app.AlertDialog
+import androidx.appcompat.app.AlertDialog
 import android.content.DialogInterface
 import android.content.Intent
 import android.os.Build
@@ -175,7 +175,7 @@ class VPNPreferences : BaseActivity(), VpnStatus.ProfileNotifyListener {
     }
 
     private fun askProfileRemoval() {
-        val dialog = AlertDialog.Builder(this)
+        val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
         dialog.setTitle("Confirm deletion")
         dialog.setMessage(getString(R.string.remove_vpn_query, mProfile!!.mName))
 

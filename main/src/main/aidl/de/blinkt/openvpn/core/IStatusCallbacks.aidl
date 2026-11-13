@@ -17,6 +17,8 @@ interface IStatusCallbacks {
      */
     oneway void newLogItem(in LogItem item);
 
+    oneway void logBufferCleared();
+
     oneway void updateStateString(in String state, in String msg, in int resid, in ConnectionStatus level, in Intent intent);
 
     oneway void updateByteCount(long inBytes, long outBytes);

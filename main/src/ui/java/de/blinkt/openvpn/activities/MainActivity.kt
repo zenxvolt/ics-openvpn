@@ -14,19 +14,58 @@ import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
 import de.blinkt.openvpn.R
+import android.widget.TextView
+import de.blinkt.openvpn.core.ConnectionStatus
+import de.blinkt.openvpn.core.ProfileManager
+import de.blinkt.openvpn.core.VpnStatus
 import de.blinkt.openvpn.core.GlobalPreferences
 import de.blinkt.openvpn.fragments.*
 import de.blinkt.openvpn.fragments.ImportRemoteConfig.Companion.newInstance
 import de.blinkt.openvpn.views.ScreenSlidePagerAdapter
 
-class MainActivity : BaseActivity() {
+class MainActivity : BaseActivity(), VpnStatus.StateListener {
+    private fun refreshVpnStatus() {
+        synchronized(VpnStatus::class.java) {
+            val text = if (VpnStatus.isStatusAvailable())
+                VpnStatus.getLastCleanLogMessage(this, true).ifEmpty { getString(R.string.state_disconnected) }
+            else getString(R.string.qs_syncing)
+            findViewById<TextView>(R.id.dashboard_status)?.text = text
+            val profile = if (VpnStatus.isVPNActive()) ProfileManager.get(
+                this, VpnStatus.getLastConnectedVPNProfile()) else null
+            findViewById<TextView>(R.id.dashboard_profile)?.text =
+                profile?.name ?: getString(R.string.vpn_choose_profile)
+        }
+    }
+
+    override fun updateState(state: String?, message: String?, resId: Int,
+                             level: ConnectionStatus?, intent: Intent?) {
+        runOnUiThread { if (!isDestroyed) refreshVpnStatus() }
+    }
+
+    override fun setConnectedVPN(uuid: String?) {
+        runOnUiThread { if (!isDestroyed) refreshVpnStatus() }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        VpnStatus.addStateListener(this)
+    }
+
+    override fun onStop() {
+        VpnStatus.removeStateListener(this)
+        super.onStop()
+    }
+
     private lateinit var mPager: ViewPager2
     private lateinit var mPagerAdapter: ScreenSlidePagerAdapter
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        setTheme(R.style.blinkt_mainTheme)
         super.onCreate(savedInstanceState)
         val view = layoutInflater.inflate(R.layout.main_activity, null)
+
+        setSupportActionBar(view.findViewById(R.id.main_toolbar))
 
         // Instantiate a ViewPager and a PagerAdapter.
         mPager = view.findViewById(R.id.pager)
@@ -37,7 +76,10 @@ class MainActivity : BaseActivity() {
         /* Toolbar and slider should have the same elevation */
         disableToolbarElevation()
 
-        val minimalUi = GlobalPreferences.getMinimalUi();
+        val minimalUi = GlobalPreferences.getMinimalUi()
+        val compactLandscape = resources.configuration.screenHeightDp < 480
+        if (isAndroidTV || minimalUi || compactLandscape)
+            view.findViewById<android.view.View>(R.id.vpn_dashboard).visibility = android.view.View.GONE
         if (isAndroidTV || minimalUi) {
             mPagerAdapter.addTab(R.string.minimal_ui, MinimalUI::class.java)
         }
@@ -52,8 +94,7 @@ class MainActivity : BaseActivity() {
             }
 
         }
-        if (isAndroidTV || minimalUi)
-            mPagerAdapter.addTab(R.string.openvpn_log, LogFragment::class.java)
+        mPagerAdapter.addTab(R.string.openvpn_log, LogFragment::class.java)
 
         mPagerAdapter.addTab(R.string.about, AboutFragment::class.java)
         mPager.setAdapter(mPagerAdapter)

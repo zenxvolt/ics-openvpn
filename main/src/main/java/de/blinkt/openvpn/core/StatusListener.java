@@ -33,114 +33,224 @@ import java.util.Locale;
  */
 
 public class StatusListener implements VpnStatus.LogListener, VpnStatus.ProfileNotifyListener {
-    private final IStatusCallbacks mCallback = new IStatusCallbacks.Stub() {
-        @Override
-        public void newLogItem(LogItem item) throws RemoteException {
-            VpnStatus.newLogItem(item);
-        }
-
-        @Override
-        public void updateStateString(String state, String msg, int resid, ConnectionStatus
-                level, Intent intent) throws RemoteException {
-            Intent newIntent = reCreateIntent(intent);
-            VpnStatus.updateStateString(state, msg, resid, level, newIntent);
-        }
-
-        private Intent reCreateIntent(Intent intent) {
-            /* To avoid UnsafeIntentLaunchViolation we recreate the intent that we passed
-             * to ourselves via the AIDL interface */
-            if (intent == null)
-                return null;
-            Intent newIntent = new Intent(intent.getAction(), intent.getData());
-            if (intent.getExtras() != null)
-                newIntent.putExtras(intent.getExtras());
-            return newIntent;
-        }
-
-        @Override
-        public void updateByteCount(long inBytes, long outBytes) throws RemoteException {
-            VpnStatus.updateByteCount(inBytes, outBytes);
-        }
-
-        @Override
-        public void connectedVPN(String uuid) throws RemoteException {
-            VpnStatus.setConnectedVPNProfile(uuid);
-        }
-
-        @Override
-        public void notifyProfileVersionChanged(String uuid, int version) throws RemoteException {
-            ProfileManager.notifyProfileVersionChanged(mContext, uuid, version);
-
-        }
-    };
-    private File mCacheDir;
+    private final java.util.concurrent.ExecutorService mWorker =
+            java.util.concurrent.Executors.newSingleThreadExecutor();
+    private final android.os.Handler mMainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private final StatusServiceConnection mConnection = new StatusServiceConnection();
+    private StatusCallback mCallback;
+    private File mCacheDir;
 
-    final class StatusServiceConnection implements ServiceConnection {
-        public IServiceStatus serviceStatus = null;
+    // A fresh callback per binding prevents late events from a dead service from
+    // overwriting a new connection. Gate each event under the same status lock.
+    private final class StatusCallback extends IStatusCallbacks.Stub {
+        boolean discardSnapshot;
+
         @Override
-        public void onServiceConnected(ComponentName className,
-                                       IBinder service) {
-            // We've bound to LocalService, cast the IBinder and get LocalService instance
-            serviceStatus = IServiceStatus.Stub.asInterface(service);
-            try {
-                /* Check if this a local service ... */
-                if (service.queryLocalInterface("de.blinkt.openvpn.core.IServiceStatus") == null) {
-                    // Not a local service
-                    VpnStatus.setConnectedVPNProfile(serviceStatus.getLastConnectedVPN());
-                    VpnStatus.setTrafficHistory(serviceStatus.getTrafficHistory());
-                    ParcelFileDescriptor pfd = serviceStatus.registerStatusCallback(mCallback);
-                    DataInputStream fd = new DataInputStream(new ParcelFileDescriptor.AutoCloseInputStream(pfd));
-
-                    /* notify the backend :openvpn process of changes in profiles */
-                    VpnStatus.addProfileStateListener(StatusListener.this);
-
-                    short len = fd.readShort();
-                    byte[] buf = new byte[65336];
-                    while (len != 0x7fff) {
-                        fd.readFully(buf, 0, len);
-                        LogItem logitem = new LogItem(buf, len);
-                        VpnStatus.newLogItem(logitem, false);
-                        len = fd.readShort();
-                    }
-                    fd.close();
-                    pfd.close();
-
-
-                } else {
-                    VpnStatus.initLogCache(mCacheDir);
-                    /* Set up logging to Logcat with a context) */
-
-                    if (BuildConfig.DEBUG || BuildConfig.FLAVOR.equals("skeleton")) {
-                        VpnStatus.addLogListener(StatusListener.this);
-                    }
-                }
-
-            } catch (RemoteException | IOException e) {
-                e.printStackTrace();
-                VpnStatus.logException(e);
+        public void logBufferCleared() {
+            synchronized (VpnStatus.class) {
+                if (mCallback != this) return;
+                discardSnapshot = true;
+                VpnStatus.clearLogLocal();
             }
         }
 
         @Override
-        public void onServiceDisconnected(ComponentName arg0) {
-            serviceStatus = null;
+        public void newLogItem(LogItem item) {
+            synchronized (VpnStatus.class) {
+                if (mCallback == this) VpnStatus.newLogItem(item);
+            }
+        }
+
+        @Override
+        public void updateStateString(String state, String msg, int resid,
+                                      ConnectionStatus level, Intent intent) {
+            synchronized (VpnStatus.class) {
+                if (mCallback != this) return;
+                VpnStatus.setStatusAvailable(true);
+                VpnStatus.updateStateString(state, msg, resid, level, reCreateIntent(intent));
+            }
+        }
+
+        @Override
+        public void updateByteCount(long inBytes, long outBytes) {
+            synchronized (VpnStatus.class) {
+                if (mCallback == this) VpnStatus.updateByteCount(inBytes, outBytes);
+            }
+        }
+
+        @Override
+        public void connectedVPN(String uuid) {
+            synchronized (VpnStatus.class) {
+                if (mCallback == this) VpnStatus.setConnectedVPNProfile(uuid);
+            }
+        }
+
+        @Override
+        public void notifyProfileVersionChanged(String uuid, int version) {
+            synchronized (VpnStatus.class) {
+                if (mCallback == this)
+                    ProfileManager.notifyProfileVersionChanged(mContext, uuid, version);
+            }
+        }
+    }
+
+    private Intent reCreateIntent(Intent intent) {
+        if (intent == null) return null;
+        Intent copy = new Intent(intent.getAction(), intent.getData());
+        if (intent.getComponent() != null && mContext.getPackageName().equals(intent.getComponent().getPackageName()))
+            copy.setComponent(intent.getComponent());
+        if (intent.getExtras() != null) copy.putExtras(intent.getExtras());
+        return copy;
+    }
+
+    final class StatusServiceConnection implements ServiceConnection {
+        public volatile IServiceStatus serviceStatus;
+        private ParcelFileDescriptor snapshotPipe;
+        private int retryCount;
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder binder) {
+            final IServiceStatus remote = IServiceStatus.Stub.asInterface(binder);
+            serviceStatus = remote;
+            if (binder.queryLocalInterface("de.blinkt.openvpn.core.IServiceStatus") != null) {
+                VpnStatus.initLogCache(mCacheDir);
+                if (BuildConfig.DEBUG || BuildConfig.FLAVOR.equals("skeleton"))
+                    VpnStatus.addLogListener(StatusListener.this);
+                return;
+            }
+            final StatusCallback callback = new StatusCallback();
+            synchronized (VpnStatus.class) {
+                mCallback = callback;
+                VpnStatus.setStatusAvailable(false);
+            }
+            mWorker.execute(() -> {
+                boolean registered = false;
+                try {
+                    TrafficHistory history = remote.getTrafficHistory();
+                    synchronized (VpnStatus.class) {
+                        if (mCallback != callback) return;
+                        VpnStatus.setTrafficHistory(history);
+                    }
+                    ParcelFileDescriptor pipe = remote.registerStatusCallback(callback);
+                    registered = true;
+                    synchronized (VpnStatus.class) {
+                        if (mCallback != callback) {
+                            pipe.close();
+                            return;
+                        }
+                        snapshotPipe = pipe;
+                    }
+                    synchronized (VpnStatus.class) {
+                        if (mCallback == callback) {
+                            VpnStatus.addProfileStateListener(StatusListener.this);
+                            VpnStatus.setLogClearHandler(() -> mWorker.execute(() -> {
+                                try { remote.clearLog(); }
+                                catch (RemoteException e) { VpnStatus.logException(e); }
+                            }));
+                        }
+                    }
+                    try (DataInputStream input = new DataInputStream(
+                            new ParcelFileDescriptor.AutoCloseInputStream(pipe))) {
+                        while (true) {
+                            int len = input.readUnsignedShort();
+                            if (len == 0x7fff) break;
+                            if (len == 0 || len > 16384)
+                                throw new IOException("Invalid log snapshot length: " + len);
+                            byte[] bytes = new byte[len];
+                            input.readFully(bytes);
+                            LogItem item = new LogItem(bytes, len);
+                            if (!item.verify()) throw new IOException("Invalid log snapshot item");
+                            synchronized (VpnStatus.class) {
+                                if (mCallback != callback) return;
+                                // Rebinding can replay history; equality includes timestamp.
+                                if (!callback.discardSnapshot)
+                                    VpnStatus.newLogItemIfUnique(item);
+                            }
+                        }
+                    }
+                    synchronized (VpnStatus.class) {
+                        if (mCallback == callback) {
+                            snapshotPipe = null;
+                            retryCount = 0;
+                        }
+                    }
+                } catch (RemoteException | IOException | RuntimeException e) {
+                    android.util.Log.e("OpenVPN", "Unable to synchronize VPN status", e);
+                    if (registered) {
+                        try { remote.unregisterStatusCallback(callback); }
+                        catch (RemoteException ignored) { }
+                    }
+                    mMainHandler.post(() -> {
+                        synchronized (VpnStatus.class) {
+                            if (mCallback != callback) return;
+                        }
+                        disconnected();
+                        scheduleRebind();
+                    });
+                } finally {
+                    boolean stale;
+                    synchronized (VpnStatus.class) { stale = mCallback != callback; }
+                    if (registered && stale) {
+                        try { remote.unregisterStatusCallback(callback); }
+                        catch (RemoteException ignored) { }
+                    }
+                }
+            });
+        }
+
+        private void disconnected() {
+            synchronized (VpnStatus.class) {
+                mCallback = null;
+                serviceStatus = null;
+                VpnStatus.setLogClearHandler(null);
+                if (snapshotPipe != null) {
+                    try { snapshotPipe.close(); } catch (IOException ignored) { }
+                    snapshotPipe = null;
+                }
+                VpnStatus.setStatusAvailable(false);
+            }
             VpnStatus.removeLogListener(StatusListener.this);
             VpnStatus.removeProfileStateListener(StatusListener.this);
         }
 
-    };
+        private final Runnable rebind = () -> {
+            mContext.unbindService(this);
+            bindStatusService();
+        };
+
+        private void scheduleRebind() {
+            mMainHandler.removeCallbacks(rebind);
+            long delay = Math.min(30000L, 1000L << Math.min(retryCount++, 5));
+            mMainHandler.postDelayed(rebind, delay);
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            disconnected();
+            // Android reconnects an existing binding after a service process crash.
+        }
+
+        @Override
+        public void onBindingDied(ComponentName name) {
+            disconnected();
+            scheduleRebind();
+        }
+    }
+
+    private void bindStatusService() {
+        Intent intent = new Intent(mContext, OpenVPNStatusService.class);
+        intent.setAction(OpenVPNService.START_SERVICE);
+        mContext.bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+    }
+
     private Context mContext;
     private String pkgName = "(packageName not yet set)";
 
     void init(Context c) {
         pkgName = c.getPackageName();
-        Intent intent = new Intent(c, OpenVPNStatusService.class);
-        intent.setAction(OpenVPNService.START_SERVICE);
         mCacheDir = c.getCacheDir();
-
-        c.bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
         this.mContext = c;
+        bindStatusService();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
             logLatestExitReasons(c);

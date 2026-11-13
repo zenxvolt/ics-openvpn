@@ -1,40 +1,117 @@
-# The name of our workflow
-name: Build
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: UI variant to build
+        type: choice
+        required: true
+        default: UiOvpn2
+        options:
+          - UiOvpn2
+          - UiOvpn23
+  push:
+    branches: [master, main]
+  pull_request:
+
 permissions:
   contents: read
-on: [push, pull_request]
+
+concurrency:
+  group: android-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-          target: [UiOvpn23, SkeletonOvpn2, UiOvpn2]
-    name: "Release ${{ matrix.target }}"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      BUILD_VARIANT: ${{ inputs.variant || 'UiOvpn2' }}
     steps:
-      - name: Use debug signing
-        run: mkdir -p ~/.gradle && echo -e "icsopenvpnDebugSign=true\norg.gradle.jvmargs=-Xmx2048M" > ~/.gradle/gradle.properties
-      - name: Checkout the code
+      - name: Checkout source and native submodules
         uses: actions/checkout@v7
         with:
-          submodules: true
-      - name: set up JDK 25
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Verify native sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          for module in openvpn openssl mbedtls openvpn3 asio lz4 fmt; do
+            mode=$(git ls-files --stage -- "main/src/main/cpp/$module" | awk 'NR == 1 {print $1}')
+            if [[ "$mode" != 160000 ]]; then
+              echo "::error::Missing Git submodule entry for $module. Use a fork/clone of the original repository, then apply the patch; importing the ZIP into an empty repository loses submodule revisions."
+              exit 1
+            fi
+          done
+          test -f main/src/main/cpp/openvpn3/client/ovpncli.i
+          test -f main/src/main/cpp/openssl/openssl.cmake
+          git submodule status --recursive
+
+      - name: Set up Java 25
         uses: actions/setup-java@v6
         with:
-          java-version: 25
-          cache: 'gradle'
-          # No idea what a recommended distribution is. Both setup-java and setup-android have temurin in their example
-          distribution: 'temurin'
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
-      - name: Build the app
-        run: ./gradlew assemble${{ matrix.target }}Release
-      - name: Run Unit tests
-        run: ./gradlew -PtestBuildType=release test${{ matrix.target }}ReleaseUnitTest
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
 
-      - name: Archive apk artifact
-        uses: actions/upload-artifact@v4
+      - name: Install native build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y swig ninja-build build-essential pkg-config perl
+
+      - name: Set up Android command-line tools
+        uses: android-actions/setup-android@v4
         with:
-          name: build-${{matrix.target}}-release-apk
-          path: main/build/outputs/apk/**/*universal*.apk
+          packages: platform-tools
+
+      - name: Install project SDK, NDK and CMake
+        run: |
+          # Match main/build.gradle.kts. channel=3 also permits an explicitly pinned preview NDK.
+          sdkmanager --channel=3 "platforms;android-37" "ndk;30.0.14904198" "cmake;3.22.1"
+
+      - name: Check log and tile regressions
+        run: python3 tools/check_regressions.py
+
+      - name: Build installable debug APK
+        id: apk
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$BUILD_VARIANT" in
+            UiOvpn2|UiOvpn23) ;;
+            *) echo "::error::Unknown UI variant"; exit 1 ;;
+          esac
+          bash ./gradlew ":main:assemble${BUILD_VARIANT}Debug" \
+            --no-daemon --stacktrace --max-workers=2 \
+            '-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8'
+
+      - name: Run Android unit tests
+        run: |
+          bash ./gradlew ":main:test${BUILD_VARIANT}DebugUnitTest" \
+            --no-daemon --stacktrace --max-workers=2 \
+            '-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8'
+
+      - name: Upload APK
+        if: ${{ !cancelled() && steps.apk.outcome == 'success' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: openvpn-${{ env.BUILD_VARIANT }}-debug-${{ github.run_number }}
+          path: main/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload test and build reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: reports-${{ env.BUILD_VARIANT }}-${{ github.run_number }}
+          path: |
+            main/build/reports/
+            main/build/test-results/
+            build/reports/
+          if-no-files-found: ignore
+          retention-days: 14

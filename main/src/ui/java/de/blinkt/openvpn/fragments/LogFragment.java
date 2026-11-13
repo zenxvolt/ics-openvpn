@@ -115,7 +115,10 @@ public class LogFragment extends ListFragment implements StateListener, SeekBar.
     @Override
     public void updateByteCount(long in, long out, long diffIn, long diffOut) {
         //%2$s/s %1$s - ↑%4$s/s %3$s
-        Resources res = getActivity().getResources();
+        final Activity activity = getActivity();
+        final View currentView = getView();
+        if (activity == null || currentView == null) return;
+        Resources res = activity.getResources();
         final String down = String.format("%2$s %1$s", humanReadableByteCount(in, false, res), humanReadableByteCount(diffIn / OpenVPNManagement.mBytecountInterval, true, res));
         final String up = String.format("%2$s %1$s", humanReadableByteCount(out, false, res), humanReadableByteCount(diffOut / OpenVPNManagement.mBytecountInterval, true, res));
 
@@ -124,6 +127,7 @@ public class LogFragment extends ListFragment implements StateListener, SeekBar.
                 getActivity().runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
+                        if (getView() != currentView || mUpStatus == null || mDownStatus == null) return;
                         mUpStatus.setText(up);
                         mDownStatus.setText(down);
                     }
@@ -160,20 +164,27 @@ public class LogFragment extends ListFragment implements StateListener, SeekBar.
         private int mLogLevel = 3;
 
 
+        private boolean disposed;
+
         public LogWindowListAdapter() {
-            initLogBuffer();
-            if (mHandler == null) {
-                mHandler = new Handler(this);
-            }
-
-            VpnStatus.addLogListener(this);
+            mHandler = new Handler(android.os.Looper.getMainLooper(), this);
+            Collections.addAll(allEntries, VpnStatus.addLogListenerAndGetBuffer(this));
+            initCurrentMessages();
         }
-
 
         private void initLogBuffer() {
             allEntries.clear();
-            Collections.addAll(allEntries, VpnStatus.getlogbuffer());
+            LogItem[] snapshot = VpnStatus.getlogbuffer();
+            for (int i = Math.max(0, snapshot.length - MAX_STORED_LOG_ENTRIES); i < snapshot.length; i++)
+                allEntries.add(snapshot[i]);
             initCurrentMessages();
+        }
+
+        void dispose() {
+            VpnStatus.removeLogListener(this);
+            disposed = true;
+            mHandler.removeCallbacksAndMessages(null);
+            observers.clear();
         }
 
         String getLogStr() {
@@ -216,20 +227,21 @@ public class LogFragment extends ListFragment implements StateListener, SeekBar.
 
         @Override
         public long getItemId(int position) {
-            return ((Object) currentLevelEntries.get(position)).hashCode();
+            return position;
         }
 
         @Override
         public boolean hasStableIds() {
-            return true;
+            return false;
         }
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
             TextView v;
-            if (convertView == null)
-                v = new TextView(getActivity());
-            else
+            if (convertView == null) {
+                v = (TextView) LayoutInflater.from(parent.getContext())
+                        .inflate(R.layout.log_entry, parent, false);
+            } else
                 v = (TextView) convertView;
 
             LogItem le = currentLevelEntries.get(position);
@@ -319,43 +331,29 @@ public class LogFragment extends ListFragment implements StateListener, SeekBar.
 
         @Override
         public void newLog(LogItem logMessage) {
-            Message msg = Message.obtain();
-            assert (msg != null);
-            msg.what = MESSAGE_NEWLOG;
-            Bundle bundle = new Bundle();
-            bundle.putParcelable("logmessage", logMessage);
-            msg.setData(bundle);
-            mHandler.sendMessage(msg);
+            // Coalesce bursts and read the authoritative sorted buffer. Appending callbacks
+            // directly would put late cache entries after newer live messages.
+            if (!mHandler.hasMessages(MESSAGE_NEWLOG))
+                mHandler.sendEmptyMessage(MESSAGE_NEWLOG);
+        }
+
+        @Override
+        public void logBufferChanged() {
+            mHandler.removeMessages(MESSAGE_NEWLOG);
+            mHandler.sendEmptyMessage(MESSAGE_CLEARLOG);
         }
 
         @Override
         public boolean handleMessage(Message msg) {
-            // We have been called
-            if (msg.what == MESSAGE_NEWLOG) {
-
-                LogItem logMessage = msg.getData().getParcelable("logmessage");
-                if (addLogMessage(logMessage))
-                    for (DataSetObserver observer : observers) {
-                        observer.onChanged();
-                    }
-            } else if (msg.what == MESSAGE_CLEARLOG) {
-                for (DataSetObserver observer : observers) {
-                    observer.onInvalidated();
-                }
+            if (disposed) return true;
+            if (msg.what == MESSAGE_NEWLOG || msg.what == MESSAGE_CLEARLOG) {
                 initLogBuffer();
-            } else if (msg.what == MESSAGE_NEWTS) {
-                for (DataSetObserver observer : observers) {
-                    observer.onInvalidated();
-                }
             } else if (msg.what == MESSAGE_NEWLOGLEVEL) {
                 initCurrentMessages();
-
-                for (DataSetObserver observer : observers) {
-                    observer.onChanged();
-                }
-
             }
-
+            // Notify after updating the data; invalidation made ListView appear empty.
+            for (DataSetObserver observer : observers)
+                observer.onChanged();
             return true;
         }
 
@@ -368,39 +366,9 @@ public class LogFragment extends ListFragment implements StateListener, SeekBar.
             }
         }
 
-        /**
-         * @param logmessage
-         * @return True if the current entries have changed
-         */
-        private boolean addLogMessage(LogItem logmessage) {
-            allEntries.add(logmessage);
-
-            if (allEntries.size() > MAX_STORED_LOG_ENTRIES) {
-                Vector<LogItem> oldAllEntries = allEntries;
-                allEntries = new Vector<LogItem>(allEntries.size());
-                for (int i = 50; i < oldAllEntries.size(); i++) {
-                    allEntries.add(oldAllEntries.elementAt(i));
-                }
-                initCurrentMessages();
-                return true;
-            } else {
-                if (logmessage.getVerbosityLevel() <= mLogLevel) {
-                    currentLevelEntries.add(logmessage);
-                    return true;
-                } else {
-                    return false;
-                }
-            }
-        }
-
         void clearLog() {
-            // Actually is probably called from GUI Thread as result of the user
-            // pressing a button. But better safe than sorry
             VpnStatus.clearLog();
-            VpnStatus.logInfo(R.string.logCleared);
-            mHandler.sendEmptyMessage(MESSAGE_CLEARLOG);
         }
-
 
         public void setTimeFormat(int newTimeFormat) {
             mTimeFormat = newTimeFormat;
@@ -520,7 +488,7 @@ public class LogFragment extends ListFragment implements StateListener, SeekBar.
             ProfileManager.saveProfile(getActivity(), profile);
             // Name could be modified, reset List adapter
 
-            AlertDialog.Builder dialog = new AlertDialog.Builder(requireActivity());
+            AlertDialog.Builder dialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireActivity());
             dialog.setTitle(R.string.configuration_changed);
             dialog.setMessage(R.string.restart_vpn_after_change);
 
@@ -576,7 +544,7 @@ public class LogFragment extends ListFragment implements StateListener, SeekBar.
 
         ladapter = new LogWindowListAdapter();
         ladapter.mTimeFormat = getActivity().getPreferences(0).getInt(LOGTIMEFORMAT, 1);
-        int logLevel = getActivity().getPreferences(0).getInt(VERBOSITYLEVEL, 1);
+        int logLevel = getActivity().getPreferences(0).getInt(VERBOSITYLEVEL, 3);
         ladapter.setLogLevel(logLevel);
 
         setListAdapter(ladapter);
@@ -660,21 +628,18 @@ public class LogFragment extends ListFragment implements StateListener, SeekBar.
 
     @Override
     public void updateState(final String status, final String logMessage, final int resId, final ConnectionStatus level, Intent intent) {
-        if (isAdded()) {
-            final String cleanLogMessage = VpnStatus.getLastCleanLogMessage(getActivity());
-
-            requireActivity().runOnUiThread(() -> {
-                if (isAdded()) {
-                    if (mSpeedView != null) {
-                        mSpeedView.setText(cleanLogMessage);
-                    }
-                    if (mConnectStatus != null)
-                        mConnectStatus.setText(cleanLogMessage);
-                }
+        final Activity activity = getActivity();
+        final View currentView = getView();
+        if (activity == null || currentView == null) return;
+        final String cleanLogMessage = VpnStatus.getLastCleanLogMessage(activity);
+        activity.runOnUiThread(() -> {
+            if (getView() != currentView) return;
+            if (mSpeedView != null) mSpeedView.setText(cleanLogMessage);
+            if (mConnectStatus != null) mConnectStatus.setText(cleanLogMessage);
+            if (mStartPendingIntent != null)
                 mStartPendingIntent.setVisibility(intent == null ? View.GONE : View.VISIBLE);
-                mPendingIntent = intent;
-            });
-        }
+            mPendingIntent = intent;
+        });
     }
 
     @Override
@@ -683,9 +648,17 @@ public class LogFragment extends ListFragment implements StateListener, SeekBar.
 
 
     @Override
-    public void onDestroy() {
-        VpnStatus.removeLogListener(ladapter);
-        super.onDestroy();
+    public void onDestroyView() {
+        if (ladapter != null) ladapter.dispose();
+        setListAdapter(null);
+        mUpStatus = null;
+        mDownStatus = null;
+        mConnectStatus = null;
+        mSpeedView = null;
+        mStartPendingIntent = null;
+        mOptionsLayout = null;
+        mPendingIntent = null;
+        super.onDestroyView();
     }
 
 }

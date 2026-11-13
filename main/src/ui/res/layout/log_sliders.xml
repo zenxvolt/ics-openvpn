@@ -13,7 +13,7 @@
         android:id="@+id/logOptionsLayout"
         android:visibility="gone"
         tools:visibility="visible"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
     <TextView
@@ -25,7 +25,7 @@
 
     <de.blinkt.openvpn.views.SeekBarTicks
             android:id="@+id/LogLevelSlider"
-            android:layout_width="300dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             tools:max="5"
             android:indeterminate="false"/>
@@ -41,21 +41,21 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
-        <RadioButton
+        <com.google.android.material.radiobutton.MaterialRadioButton
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/timestamps_none"
                 android:id="@+id/radioNone"
                 />
 
-        <RadioButton
+        <com.google.android.material.radiobutton.MaterialRadioButton
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/timestamp_short"
                 android:id="@+id/radioShort"
                 />
 
-        <RadioButton
+        <com.google.android.material.radiobutton.MaterialRadioButton
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/timestamp_iso"
@@ -65,7 +65,7 @@
 
     </RadioGroup>
 
-    <CheckBox
+    <com.google.android.material.checkbox.MaterialCheckBox
         tools:checked="true"
         android:id="@+id/clearlogconnect"
         android:text="@string/clear_log_on_connect"

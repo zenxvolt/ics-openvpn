@@ -6,7 +6,7 @@ package de.blinkt.openvpn.fragments
 
 import android.Manifest
 import android.app.Activity
-import android.app.AlertDialog
+import androidx.appcompat.app.AlertDialog
 import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
@@ -75,7 +75,9 @@ class VPNProfileList : ListFragment(), View.OnClickListener, StateListener {
         level: ConnectionStatus?,
         intent: Intent?
     ) {
-        requireActivity().runOnUiThread(Runnable {
+        val currentView = view ?: return
+        activity?.runOnUiThread(Runnable {
+            if (view !== currentView) return@Runnable
             mLastStatusMessage = VpnStatus.getLastCleanLogMessage(getActivity())
             mLastIntent = intent
             mArrayadapter!!.notifyDataSetChanged()
@@ -96,6 +98,7 @@ class VPNProfileList : ListFragment(), View.OnClickListener, StateListener {
     }
 
     override fun setConnectedVPN(uuid: String?) {
+        activity?.runOnUiThread { if (view != null) mArrayadapter?.notifyDataSetChanged() }
     }
 
     private fun startOrStopVPN(profile: VpnProfile) {
@@ -424,7 +427,7 @@ class VPNProfileList : ListFragment(), View.OnClickListener, StateListener {
             entry.setSingleLine()
             entry.setContentDescription(getString(R.string.name_of_the_vpn_profile))
 
-            val dialog = AlertDialog.Builder(context)
+            val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(context)
             if (mCopyProfile == null) dialog.setTitle(R.string.menu_add_profile)
             else {
                 dialog.setTitle(

@@ -7,7 +7,7 @@ package de.blinkt.openvpn.fragments
 
 import android.Manifest
 import android.app.Activity
-import android.app.AlertDialog
+import androidx.appcompat.app.AlertDialog
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
@@ -217,7 +217,7 @@ class MinimalUI: Fragment(), VpnStatus.StateListener {
                     profile.mAlias)
                 // alias to preselect, null if unavailable
             } catch (anf: ActivityNotFoundException) {
-                val ab = AlertDialog.Builder(activity)
+                val ab = com.google.android.material.dialog.MaterialAlertDialogBuilder(requireActivity())
                 ab.setTitle(R.string.broken_image_cert_title)
                 ab.setMessage(R.string.broken_image_cert)
                 ab.setPositiveButton(android.R.string.ok, null)

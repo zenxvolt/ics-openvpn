@@ -92,7 +92,7 @@ class GeneralSettings : PreferenceFragmentCompat(), Preference.OnPreferenceClick
                 }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && newValue == true)
                 {
-                    val builder = AlertDialog.Builder(
+                    val builder = com.google.android.material.dialog.MaterialAlertDialogBuilder(
                         requireContext()
                     )
                     builder.setMessage(R.string.use_alwayson_vpn)
@@ -208,7 +208,7 @@ class GeneralSettings : PreferenceFragmentCompat(), Preference.OnPreferenceClick
             return false;
         }
         if (preference.key == "clearapi") {
-            val builder = AlertDialog.Builder(
+            val builder = com.google.android.material.dialog.MaterialAlertDialogBuilder(
                 requireContext()
             )
             builder.setPositiveButton(R.string.clear, this)

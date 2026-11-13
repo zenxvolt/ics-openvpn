@@ -40,7 +40,7 @@ abstract class BaseActivity : AppCompatActivity() {
         if (isAndroidTV) {
             requestWindowFeature(Window.FEATURE_OPTIONS_PANEL)
         }
-        this.enableEdgeToEdge(SystemBarStyle.dark(R.color.primary_dark))
+        this.enableEdgeToEdge()
         super.onCreate(savedInstanceState)
     }
 
@@ -51,6 +51,9 @@ abstract class BaseActivity : AppCompatActivity() {
     ) {
         val contentView = rootView.findViewById<View>(contentViewId)
 
+        val originalLeft = contentView.paddingLeft
+        val originalRight = contentView.paddingRight
+        val originalBottom = contentView.paddingBottom
         ViewCompat.setOnApplyWindowInsetsListener(contentView) { v, windowInsets ->
             val insets =
                 windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
@@ -58,7 +61,7 @@ abstract class BaseActivity : AppCompatActivity() {
 
             val statusBarInsets = windowInsets.getInsets(WindowInsetsCompat.Type.statusBars())
 
-            statusbarbg.layoutParams.height = statusBarInsets.top
+            statusbarbg?.layoutParams?.height = statusBarInsets.top
 
 
             v.updateLayoutParams<ViewGroup.MarginLayoutParams> {
@@ -66,11 +69,11 @@ abstract class BaseActivity : AppCompatActivity() {
             }
 
             v.updatePadding(
-                left = insets.left,
-                right = insets.right,
+                left = originalLeft + insets.left,
+                right = originalRight + insets.right,
             )
             if (setupBottom) {
-                v.updatePadding(bottom = insets.bottom)
+                v.updatePadding(bottom = originalBottom + insets.bottom)
                 WindowInsetsCompat.CONSUMED
             } else {
                 windowInsets

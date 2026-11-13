@@ -10,12 +10,13 @@
              android:layout_height="wrap_content"
              android:layout_margin="@dimen/stdpadding">
     <!-- A CardView that contains a TextView -->
-    <androidx.cardview.widget.CardView
+    <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_view"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            card_view:cardCornerRadius="10dp">
+            card_view:cardCornerRadius="20dp"
+    card_view:cardElevation="0dp">
 
 
         <RelativeLayout
@@ -376,7 +377,7 @@
                         android:lines="5"/>
             </LinearLayout>
 
-            <Switch
+            <com.google.android.material.materialswitch.MaterialSwitch
                     android:id="@+id/remoteSwitch"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -401,5 +402,5 @@
 
         </RelativeLayout>
 
-    </androidx.cardview.widget.CardView>
+    </com.google.android.material.card.MaterialCardView>
 </FrameLayout>
