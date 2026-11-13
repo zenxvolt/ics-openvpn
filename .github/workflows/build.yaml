@@ -28,6 +28,8 @@ jobs:
     timeout-minutes: 90
     env:
       BUILD_VARIANT: ${{ inputs.variant || 'UiOvpn2' }}
+      # Differs from the original app (de.blinkt.openvpn) so both can be installed side by side
+      APP_ID: com.zenxvolt.openvpn
     steps:
       - name: Checkout source and native submodules
         uses: actions/checkout@v7
@@ -71,7 +73,7 @@ jobs:
       - name: Check log and tile regressions
         run: python3 tools/check_regressions.py
 
-      - name: Build installable debug APK
+      - name: Build release APK (debug-signed, custom application id)
         id: apk
         shell: bash
         run: |
@@ -80,13 +82,15 @@ jobs:
             UiOvpn2|UiOvpn23) ;;
             *) echo "::error::Unknown UI variant"; exit 1 ;;
           esac
-          bash ./gradlew ":main:assemble${BUILD_VARIANT}Debug" \
+          bash ./gradlew ":main:assemble${BUILD_VARIANT}Release" \
+            -PicsopenvpnDebugSign=true "-PappId=$APP_ID" \
             --no-daemon --stacktrace --max-workers=2 \
             '-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8'
 
       - name: Run Android unit tests
         run: |
-          bash ./gradlew ":main:test${BUILD_VARIANT}DebugUnitTest" \
+          bash ./gradlew ":main:test${BUILD_VARIANT}ReleaseUnitTest" \
+            -PicsopenvpnDebugSign=true "-PappId=$APP_ID" -PtestBuildType=release \
             --no-daemon --stacktrace --max-workers=2 \
             '-Dorg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8'
 
@@ -94,7 +98,7 @@ jobs:
         if: ${{ !cancelled() && steps.apk.outcome == 'success' }}
         uses: actions/upload-artifact@v6
         with:
-          name: openvpn-${{ env.BUILD_VARIANT }}-debug-${{ github.run_number }}
+          name: openvpn-${{ env.BUILD_VARIANT }}-release-${{ github.run_number }}
           path: main/build/outputs/apk/**/*.apk
           if-no-files-found: error
           retention-days: 14
