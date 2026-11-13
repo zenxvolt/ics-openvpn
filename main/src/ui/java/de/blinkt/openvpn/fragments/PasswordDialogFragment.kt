@@ -4,7 +4,7 @@
  */
 package de.blinkt.openvpn.core
 
-import android.app.AlertDialog
+import androidx.appcompat.app.AlertDialog
 import android.app.Dialog
 import android.content.ComponentName
 import android.content.DialogInterface
@@ -52,7 +52,7 @@ class PasswordDialogFragment : DialogFragment() {
         if (!echo)
             input.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
 
-        return AlertDialog.Builder(activity)
+        return com.google.android.material.dialog.MaterialAlertDialogBuilder(requireActivity())
                 .setTitle("Challenge/Response Authentication")
                 .setMessage(title)
                 .setView(input)

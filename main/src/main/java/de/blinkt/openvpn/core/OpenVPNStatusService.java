@@ -32,17 +32,18 @@ public class OpenVPNStatusService extends Service implements VpnStatus.LogListen
     }
 
 
-    static final RemoteCallbackList<IStatusCallbacks> mCallbacks =
+    final RemoteCallbackList<IStatusCallbacks> mCallbacks =
             new RemoteCallbackList<>();
 
     @Override
     public void onCreate() {
         super.onCreate();
+        mHandler.setService(this);
+        VpnStatus.initLogCache(getCacheDir());
         VpnStatus.addLogListener(this);
         VpnStatus.addByteCountListener(this);
         VpnStatus.addStateListener(this);
         VpnStatus.addProfileStateListener(this);
-        mHandler.setService(this);
     }
 
     @Override
@@ -54,6 +55,7 @@ public class OpenVPNStatusService extends Service implements VpnStatus.LogListen
         VpnStatus.removeStateListener(this);
         VpnStatus.removeProfileStateListener(this);
         mCallbacks.kill();
+        mHandler.removeCallbacksAndMessages(null);
 
     }
 
@@ -61,45 +63,57 @@ public class OpenVPNStatusService extends Service implements VpnStatus.LogListen
 
         @Override
         public ParcelFileDescriptor registerStatusCallback(IStatusCallbacks cb) throws RemoteException {
-            final LogItem[] logbuffer = VpnStatus.getlogbuffer();
-            if (mLastUpdateMessage != null)
-                sendUpdate(cb, mLastUpdateMessage);
-
-            mCallbacks.register(cb);
+            // The client invokes registration on a worker. Wait for the disk cache before
+            // the snapshot, never while holding the VpnStatus lock used by the reader.
+            synchronized (VpnStatus.readFileLock) {
+                long deadline = android.os.SystemClock.elapsedRealtime() + 10000;
+                while (!VpnStatus.readFileLog) {
+                    long remaining = deadline - android.os.SystemClock.elapsedRealtime();
+                    if (remaining <= 0) break;
+                    try {
+                        VpnStatus.readFileLock.wait(remaining);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new RemoteException("Interrupted loading log cache");
+                    }
+                }
+            }
             try {
                 final ParcelFileDescriptor[] pipe = ParcelFileDescriptor.createPipe();
-                new Thread("pushLogs") {
-                    @Override
-                    public void run() {
-                        DataOutputStream fd = new DataOutputStream(new ParcelFileDescriptor.AutoCloseOutputStream(pipe[1]));
-                        try {
-                            synchronized (VpnStatus.readFileLock) {
-                                if (!VpnStatus.readFileLog) {
-                                    VpnStatus.readFileLock.wait();
-                                }
-                            }
-                        } catch (InterruptedException e) {
-                            VpnStatus.logException(e);
-                        }
-                        try {
-
-                            for (LogItem logItem : logbuffer) {
-                                byte[] bytes = logItem.getMarshaledBytes();
-                                fd.writeShort(bytes.length);
-                                fd.write(bytes);
-                            }
-                            // Mark end
-                            fd.writeShort(0x7fff);
-                            fd.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-
+                final LogItem[] logbuffer;
+                try {
+                    synchronized (VpnStatus.class) {
+                        logbuffer = VpnStatus.getlogbuffer();
+                        // All events already in the Handler queue are covered by this
+                        // snapshot. The callback cookie prevents replaying them later.
+                        mCallbacks.register(cb, mEventSequence);
+                        cb.connectedVPN(VpnStatus.getLastConnectedVPNProfile());
+                        if (mLastUpdateMessage != null)
+                            sendUpdate(cb, mLastUpdateMessage);
+                        TrafficHistory.LastDiff traffic = VpnStatus.trafficHistory.getLastDiff(null);
+                        cb.updateByteCount(traffic.getIn(), traffic.getOut());
                     }
-                }.start();
+                } catch (RemoteException | RuntimeException e) {
+                    mCallbacks.unregister(cb);
+                    pipe[0].close();
+                    pipe[1].close();
+                    throw e;
+                }
+                new Thread(() -> {
+                    try (DataOutputStream fd = new DataOutputStream(
+                            new ParcelFileDescriptor.AutoCloseOutputStream(pipe[1]))) {
+                        for (LogItem logItem : logbuffer) {
+                            byte[] bytes = logItem.getMarshaledBytes();
+                            fd.writeShort(bytes.length);
+                            fd.write(bytes);
+                        }
+                        fd.writeShort(0x7fff);
+                    } catch (IOException | RuntimeException e) {
+                        android.util.Log.w("OpenVPN", "Log snapshot pipe closed", e);
+                    }
+                }, "OpenVPN-log-snapshot").start();
                 return pipe[0];
             } catch (IOException e) {
-                e.printStackTrace();
                 throw new RemoteException(e.getMessage());
             }
         }
@@ -107,6 +121,12 @@ public class OpenVPNStatusService extends Service implements VpnStatus.LogListen
         @Override
         public void unregisterStatusCallback(IStatusCallbacks cb) throws RemoteException {
             mCallbacks.unregister(cb);
+        }
+
+        @Override
+        public void clearLog() {
+            VpnStatus.clearLog();
+            VpnStatus.logInfo(de.blinkt.openvpn.R.string.logCleared);
         }
 
         @Override
@@ -132,18 +152,38 @@ public class OpenVPNStatusService extends Service implements VpnStatus.LogListen
     };
 
     @Override
+    public void logBufferChanged() {
+        enqueue(SEND_LOG_CLEARED, null);
+    }
+
+    @Override
     public void newLog(LogItem logItem) {
-        Message msg = mHandler.obtainMessage(SEND_NEW_LOGITEM, logItem);
-        msg.sendToTarget();
+        enqueue(SEND_NEW_LOGITEM, logItem);
     }
 
     @Override
     public void updateByteCount(long in, long out, long diffIn, long diffOut) {
-        Message msg = mHandler.obtainMessage(SEND_NEW_BYTECOUNT, Pair.create(in, out));
-        msg.sendToTarget();
+        enqueue(SEND_NEW_BYTECOUNT, Pair.create(in, out));
     }
 
-    static UpdateMessage mLastUpdateMessage;
+    private UpdateMessage mLastUpdateMessage;
+    // Accessed under VpnStatus.class; all listener callbacks are dispatched under it.
+    private long mEventSequence;
+
+    private static class SequencedEvent {
+        final long sequence;
+        final Object payload;
+        SequencedEvent(long sequence, Object payload) {
+            this.sequence = sequence;
+            this.payload = payload;
+        }
+    }
+
+    private void enqueue(int what, Object payload) {
+        synchronized (VpnStatus.class) {
+            mHandler.obtainMessage(what, new SequencedEvent(++mEventSequence, payload)).sendToTarget();
+        }
+    }
 
     static class UpdateMessage {
         public String state;
@@ -166,25 +206,23 @@ public class OpenVPNStatusService extends Service implements VpnStatus.LogListen
     public void updateState(String state, String logmessage, int localizedResId, ConnectionStatus level, Intent intent) {
 
         mLastUpdateMessage = new UpdateMessage(state, logmessage, localizedResId, level, intent);
-        Message msg = mHandler.obtainMessage(SEND_NEW_STATE, mLastUpdateMessage);
-        msg.sendToTarget();
+        enqueue(SEND_NEW_STATE, mLastUpdateMessage);
     }
 
     @Override
     public void setConnectedVPN(String uuid) {
-        Message msg = mHandler.obtainMessage(SEND_NEW_CONNECTED_VPN, uuid);
-        msg.sendToTarget();
+        enqueue(SEND_NEW_CONNECTED_VPN, uuid);
     }
 
     @Override
     public void notifyProfileVersionChanged(String uuid, int version, boolean changedInThisProcess)
     {
-        Message msg = mHandler.obtainMessage(SEND_NEW_PROFILE_VERSION, Pair.create(uuid, version));
-        msg.sendToTarget();
+        enqueue(SEND_NEW_PROFILE_VERSION, Pair.create(uuid, version));
     }
 
-    private static final OpenVPNStatusHandler mHandler = new OpenVPNStatusHandler();
+    private final OpenVPNStatusHandler mHandler = new OpenVPNStatusHandler();
 
+    private static final int SEND_LOG_CLEARED = 105;
     private static final int SEND_NEW_LOGITEM = 100;
     private static final int SEND_NEW_STATE = 101;
     private static final int SEND_NEW_BYTECOUNT = 102;
@@ -192,6 +230,10 @@ public class OpenVPNStatusService extends Service implements VpnStatus.LogListen
     private static final int SEND_NEW_PROFILE_VERSION = 104;
 
     private static class OpenVPNStatusHandler extends Handler {
+        OpenVPNStatusHandler() {
+            super(android.os.Looper.getMainLooper());
+        }
+
         WeakReference<OpenVPNStatusService> service = null;
 
         private void setService(OpenVPNStatusService statusService) {
@@ -206,29 +248,38 @@ public class OpenVPNStatusService extends Service implements VpnStatus.LogListen
                 return;
             callbacks = service.get().mCallbacks;
             // Broadcast to all clients the new value.
+            SequencedEvent event = (SequencedEvent) msg.obj;
             final int N = callbacks.beginBroadcast();
+            try {
             for (int i = 0; i < N; i++) {
                 try {
+                    Object cookie = callbacks.getBroadcastCookie(i);
+                    if (msg.what != SEND_NEW_PROFILE_VERSION
+                            && cookie instanceof Long && event.sequence <= (Long) cookie)
+                        continue;
                     IStatusCallbacks broadcastItem = callbacks.getBroadcastItem(i);
 
                     switch (msg.what) {
+                        case SEND_LOG_CLEARED:
+                            broadcastItem.logBufferCleared();
+                            break;
                         case SEND_NEW_LOGITEM:
-                            broadcastItem.newLogItem((LogItem) msg.obj);
+                            broadcastItem.newLogItem((LogItem) event.payload);
                             break;
                         case SEND_NEW_BYTECOUNT:
-                            Pair<Long, Long> inout = (Pair<Long, Long>) msg.obj;
+                            Pair<Long, Long> inout = (Pair<Long, Long>) event.payload;
                             broadcastItem.updateByteCount(inout.first, inout.second);
                             break;
                         case SEND_NEW_STATE:
-                            sendUpdate(broadcastItem, (UpdateMessage) msg.obj);
+                            sendUpdate(broadcastItem, (UpdateMessage) event.payload);
                             break;
 
                         case SEND_NEW_CONNECTED_VPN:
-                            broadcastItem.connectedVPN((String) msg.obj);
+                            broadcastItem.connectedVPN((String) event.payload);
                             break;
 
                         case SEND_NEW_PROFILE_VERSION:
-                            Pair<String, Integer> profileupdate =  (Pair<String, Integer>) msg.obj;
+                            Pair<String, Integer> profileupdate =  (Pair<String, Integer>) event.payload;
                             broadcastItem.notifyProfileVersionChanged(profileupdate.first, profileupdate.second);
                     }
                 } catch (RemoteException e) {
@@ -236,7 +287,9 @@ public class OpenVPNStatusService extends Service implements VpnStatus.LogListen
                     // the dead object for us.
                 }
             }
-            callbacks.finishBroadcast();
+            } finally {
+                callbacks.finishBroadcast();
+            }
         }
     }
 

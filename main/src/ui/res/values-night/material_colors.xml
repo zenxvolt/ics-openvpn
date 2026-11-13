@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Clean blue / neutral palette (dark) -->
+    <color name="md_primary">#B3C5FF</color>
+    <color name="md_on_primary">#002A77</color>
+    <color name="md_primary_container">#11409F</color>
+    <color name="md_on_primary_container">#DBE1FF</color>
+    <color name="md_secondary">#C0C6DC</color>
+    <color name="md_on_secondary">#2A3042</color>
+    <color name="md_secondary_container">#40465A</color>
+    <color name="md_on_secondary_container">#DCE2F9</color>
+    <color name="md_error">#FFB4AB</color>
+    <color name="md_on_error">#690005</color>
+    <color name="md_surface">#111318</color>
+    <color name="md_on_surface">#E2E2E9</color>
+    <color name="md_surface_variant">#44464F</color>
+    <color name="md_on_surface_variant">#C5C6D0</color>
+    <color name="md_outline">#8F909A</color>
+    <color name="md_outline_variant">#44464F</color>
+    <color name="md_surface_container_lowest">#0C0E13</color>
+    <color name="md_surface_container_low">#1A1B21</color>
+    <color name="md_surface_container">#1E1F25</color>
+    <color name="md_surface_container_high">#282A2F</color>
+    <color name="md_surface_container_highest">#33353A</color>
+
+    <color name="vpn_state_connected">#4CB86E</color>
+    <color name="vpn_state_connecting">#E89A2C</color>
+    <color name="vpn_state_disconnected">#4F7BEA</color>
+    <color name="vpn_state_error">#E5534B</color>
+    <color name="vpn_state_on">#FFFFFF</color>
+</resources>

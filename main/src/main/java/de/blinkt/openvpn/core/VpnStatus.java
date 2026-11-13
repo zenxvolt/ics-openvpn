@@ -71,15 +71,36 @@ public class VpnStatus {
 
     static final int MAXLOGENTRIES = 1000;
 
-    public static boolean isVPNActive() {
-        return mLastLevel != ConnectionStatus.LEVEL_AUTH_FAILED && !(mLastLevel == ConnectionStatus.LEVEL_NOTCONNECTED);
+    private static boolean mStatusAvailable;
+
+    public static synchronized ConnectionStatus getLastStateLevel() {
+        return mLastLevel;
+    }
+
+    public static synchronized boolean isStatusAvailable() {
+        return mStatusAvailable;
+    }
+
+    public static synchronized void setStatusAvailable(boolean available) {
+        mStatusAvailable = available;
+        if (!available) {
+            setConnectedVPNProfile(null);
+            updateStateString("NOPROCESS", "", R.string.state_noprocess,
+                    ConnectionStatus.LEVEL_NOTCONNECTED);
+        }
+    }
+
+    public static synchronized boolean isVPNActive() {
+        return mLastLevel != ConnectionStatus.LEVEL_AUTH_FAILED
+                && mLastLevel != ConnectionStatus.LEVEL_NOTCONNECTED
+                && mLastLevel != ConnectionStatus.UNKNOWN_LEVEL;
     }
 
     public static String getLastCleanLogMessage(Context c) {
         return getLastCleanLogMessage(c, false);
     }
 
-    public static String getLastCleanLogMessage(Context c, boolean shortversion) {
+    public static synchronized String getLastCleanLogMessage(Context c, boolean shortversion) {
         String message = mLaststatemsg;
         switch (mLastLevel) {
             case LEVEL_CONNECTED:
@@ -127,7 +148,9 @@ public class VpnStatus {
 
     }
 
-    public static void initLogCache(File cacheDir) {
+    public static synchronized void initLogCache(File cacheDir) {
+        if (mLogFileHandler != null)
+            return;
         mHandlerThread = new HandlerThread("LogFileWriter", Thread.MIN_PRIORITY);
         mHandlerThread.start();
         mLogFileHandler = new LogFileHandler(mHandlerThread.getLooper());
@@ -150,12 +173,12 @@ public class VpnStatus {
     }
 
 
-    public static String getLastConnectedVPNProfile()
+    public static synchronized String getLastConnectedVPNProfile()
     {
         return mLastConnectedVPNUUID;
     }
 
-    public static void setTrafficHistory(TrafficHistory trafficHistory) {
+    public static synchronized void setTrafficHistory(TrafficHistory trafficHistory) {
         VpnStatus.trafficHistory = trafficHistory;
     }
 
@@ -222,6 +245,8 @@ public class VpnStatus {
 
     public interface LogListener {
         void newLog(LogItem logItem);
+
+        default void logBufferChanged() {}
     }
 
     public interface StateListener {
@@ -242,8 +267,24 @@ public class VpnStatus {
 
     }
 
+    private static Runnable mRemoteLogClear;
+
+    static synchronized void setLogClearHandler(Runnable handler) {
+        mRemoteLogClear = handler;
+    }
+
     public synchronized static void clearLog() {
+        if (mRemoteLogClear != null) {
+            mRemoteLogClear.run();
+            return;
+        }
+        clearLogLocal();
+    }
+
+    static synchronized void clearLogLocal() {
         logbuffer.clear();
+        for (LogListener listener : logListener)
+            listener.logBufferChanged();
         logInformation();
         if (mLogFileHandler != null)
             mLogFileHandler.sendEmptyMessage(LogFileHandler.TRIM_LOG_FILE);
@@ -262,7 +303,14 @@ public class VpnStatus {
     }
 
     public synchronized static void addLogListener(LogListener ll) {
-        logListener.add(ll);
+        if (!logListener.contains(ll))
+            logListener.add(ll);
+    }
+
+    // Register and snapshot under the same lock as newLogItem: no missing or duplicated edge.
+    public synchronized static LogItem[] addLogListenerAndGetBuffer(LogListener listener) {
+        addLogListener(listener);
+        return getlogbuffer();
     }
 
     public synchronized static void removeLogListener(LogListener ll) {
@@ -283,13 +331,15 @@ public class VpnStatus {
     public synchronized static void addStateListener(StateListener sl) {
         if (!stateListener.contains(sl)) {
             stateListener.add(sl);
+            sl.setConnectedVPN(mLastConnectedVPNUUID);
             if (mLaststate != null)
                 sl.updateState(mLaststate, mLaststatemsg, mLastStateresid, mLastLevel, mLastIntent);
         }
     }
 
     public synchronized static void addProfileStateListener(ProfileNotifyListener pl) {
-        profileListener.add(pl);
+        if (!profileListener.contains(pl))
+            profileListener.add(pl);
     }
 
     public synchronized static void removeProfileStateListener(ProfileNotifyListener pl) {
@@ -438,14 +488,13 @@ public class VpnStatus {
     }
 
     synchronized static void newLogItem(LogItem logItem, boolean cachedLine, boolean enforceUnique) {
-        if (cachedLine) {
-            logbuffer.addFirst(logItem);
-        } else {
-            insertLogItemByLogTime(logItem, enforceUnique);
-            if (mLogFileHandler != null) {
-                Message m = mLogFileHandler.obtainMessage(LogFileHandler.LOG_MESSAGE, logItem);
-                mLogFileHandler.sendMessage(m);
-            }
+        // Cached and live messages use the same chronological order. Only a successful
+        // insertion may be persisted or broadcast to listeners.
+        if (!insertLogItemByLogTime(logItem, enforceUnique))
+            return;
+        if (!cachedLine && mLogFileHandler != null) {
+            Message m = mLogFileHandler.obtainMessage(LogFileHandler.LOG_MESSAGE, logItem);
+            mLogFileHandler.sendMessage(m);
         }
 
         if (logbuffer.size() > MAXLOGENTRIES + MAXLOGENTRIES / 2) {
@@ -460,32 +509,31 @@ public class VpnStatus {
         }
     }
 
-    private static void insertLogItemByLogTime(LogItem logItem, boolean enforceUnique) {
+    private static boolean insertLogItemByLogTime(LogItem logItem, boolean enforceUnique) {
+        if (enforceUnique && logbuffer.contains(logItem))
+            return false;
         /* Shortcut for the shortcut that it should be added at the
          * end to avoid traversing the list
          */
         if (!logbuffer.isEmpty() && logbuffer.getLast().getLogtime() <= logItem.getLogtime())
         {
             logbuffer.addLast(logItem);
-            return;
+            return true;
         }
 
         ListIterator<LogItem> itr = logbuffer.listIterator();
         long newItemLogTime = logItem.getLogtime();
         while(itr.hasNext()) {
             LogItem laterLogItem = itr.next();
-            if (enforceUnique && laterLogItem.equals(logItem))
-                /* Identical object found, ignore new item */
-                return;
-
             if (laterLogItem.getLogtime() > newItemLogTime) {
                 itr.previous();
                 itr.add(logItem);
-                return;
+                return true;
             }
         }
         /* no hasNext, add at the end */
         itr.add(logItem);
+        return true;
     }
 
 

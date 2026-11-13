@@ -34,6 +34,7 @@ class LogFileHandler extends Handler {
     public static final int LOG_MESSAGE = 103;
     public static final int MAGIC_BYTE = 0x55;
     protected OutputStream mLogFile;
+    private boolean mCacheNeedsRewrite;
 
     public static final String LOGFILE_NAME = "logcache.dat";
 
@@ -51,12 +52,19 @@ class LogFileHandler extends Handler {
                     throw new RuntimeException("mLogFile not null");
                 readLogCache((File) msg.obj);
                 openLogFile((File) msg.obj);
+                if (mCacheNeedsRewrite) {
+                    trimLogFile();
+                    for (LogItem item : VpnStatus.getlogbuffer())
+                        writeLogItemToDisk(item);
+                }
+
             } else if (msg.what == LOG_MESSAGE && msg.obj instanceof LogItem) {
                 // Ignore log messages if not yet initialized
                 if (mLogFile == null)
                     return;
                 writeLogItemToDisk((LogItem) msg.obj);
             } else if (msg.what == TRIM_LOG_FILE) {
+                if (mLogFile == null) return;
                 trimLogFile();
                 for (LogItem li : VpnStatus.getlogbuffer())
                     writeLogItemToDisk(li);
@@ -65,24 +73,24 @@ class LogFileHandler extends Handler {
             }
 
         } catch (IOException | BufferOverflowException e) {
-            e.printStackTrace();
-            VpnStatus.logError("Error during log cache: " + msg.what);
-            VpnStatus.logException(e);
+            // Do not report a failed log write back into the same writer forever.
+            android.util.Log.e("OpenVPN", "Error during log cache: " + msg.what, e);
+            if (mLogFile != null) {
+                try { mLogFile.close(); } catch (IOException ignored) { }
+                mLogFile = null;
+            }
         }
 
     }
 
     private void flushToDisk() throws IOException {
-        mLogFile.flush();
+        if (mLogFile != null)
+            mLogFile.flush();
     }
 
-    private void trimLogFile() {
-        try {
-            mLogFile.flush();
-            ((FileOutputStream) mLogFile).getChannel().truncate(0);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    private void trimLogFile() throws IOException {
+        mLogFile.flush();
+        ((FileOutputStream) mLogFile).getChannel().truncate(0).position(0);
     }
 
     private void writeLogItemToDisk(LogItem li) throws IOException {
@@ -123,7 +131,7 @@ class LogFileHandler extends Handler {
 
     private void openLogFile(File cacheDir) throws FileNotFoundException {
         File logfile = new File(cacheDir, LOGFILE_NAME);
-        mLogFile = new FileOutputStream(logfile);
+        mLogFile = new FileOutputStream(logfile, true);
     }
 
     private void readLogCache(File cacheDir) {
@@ -139,6 +147,7 @@ class LogFileHandler extends Handler {
             log.close();
 
         } catch (java.io.IOException | java.lang.RuntimeException e) {
+            mCacheNeedsRewrite = true;
             VpnStatus.logError("Reading cached logfile failed");
             VpnStatus.logException(e);
             e.printStackTrace();
@@ -160,64 +169,39 @@ class LogFileHandler extends Handler {
 
 
     protected void readCacheContents(InputStream in) throws IOException {
-        BufferedInputStream logFile = new BufferedInputStream(in);
-
-        byte[] buf = new byte[16384];
-        int read = logFile.read(buf, 0, 5);
+        java.io.DataInputStream input = new java.io.DataInputStream(new BufferedInputStream(in));
         int itemsRead = 0;
-
-
-        readloop:
-        while (read >= 5) {
-            int skipped = 0;
-            while (buf[skipped] != MAGIC_BYTE) {
-                skipped++;
-                if (!(logFile.read(buf, skipped + 4, 1) == 1) || skipped + 10 > buf.length) {
-                    VpnStatus.logDebug(String.format(Locale.US, "Skipped %d bytes and no a magic byte found", skipped));
-                    break readloop;
-                }
+        while (itemsRead < 2 * VpnStatus.MAXLOGENTRIES) {
+            int marker = input.read();
+            if (marker == -1) break;
+            if (marker != MAGIC_BYTE) continue;
+            int len;
+            try {
+                len = input.readInt();
+            } catch (java.io.EOFException truncatedHeader) {
+                throw new java.io.EOFException("Truncated cached log header");
             }
-            if (skipped > 0)
-                VpnStatus.logDebug(String.format(Locale.US, "Skipped %d bytes before finding a magic byte", skipped));
-
-            int len = ByteBuffer.wrap(buf, skipped + 1, 4).asIntBuffer().get();
-
-            // Marshalled LogItem
-            int pos = 0;
-            byte buf2[] = new byte[buf.length];
-
-            while (pos < len) {
-                byte b = (byte) logFile.read();
-                if (b == MAGIC_BYTE) {
-                    VpnStatus.logDebug(String.format(Locale.US, "Unexpected magic byte found at pos %d, abort current log item", pos));
-                    read = logFile.read(buf, 1, 4) + 1;
-                    continue readloop;
-                } else if (b == MAGIC_BYTE + 1) {
-                    b = (byte) logFile.read();
-                    if (b == 0)
-                        b = MAGIC_BYTE;
-                    else if (b == 1)
-                        b = MAGIC_BYTE + 1;
-                    else {
-                        VpnStatus.logDebug(String.format(Locale.US, "Escaped byte not 0 or 1: %d", b));
-                        read = logFile.read(buf, 1, 4) + 1;
-                        continue readloop;
-                    }
+            if (len <= 0 || len > 16384)
+                throw new IOException("Invalid cached log length: " + len);
+            byte[] bytes = new byte[len];
+            for (int pos = 0; pos < len; pos++) {
+                int value = input.read();
+                if (value == -1) throw new java.io.EOFException("Truncated cached log");
+                if (value == MAGIC_BYTE)
+                    throw new IOException("Unescaped log marker");
+                if (value == MAGIC_BYTE + 1) {
+                    int escaped = input.read();
+                    if (escaped < 0) throw new java.io.EOFException("Truncated log escape");
+                    if (escaped > 1) throw new IOException("Invalid log escape");
+                    value = MAGIC_BYTE + escaped;
                 }
-                buf2[pos++] = b;
+                bytes[pos] = (byte) value;
             }
-
-            restoreLogItem(buf2, len);
-
-            //Next item
-            read = logFile.read(buf, 0, 5);
+            restoreLogItem(bytes, len);
             itemsRead++;
-            if (itemsRead > 2 * VpnStatus.MAXLOGENTRIES) {
-                VpnStatus.logError("Too many logentries read from cache, aborting.");
-                read = 0;
-            }
-
         }
+        if (itemsRead == 2 * VpnStatus.MAXLOGENTRIES)
+            mCacheNeedsRewrite = true;
         VpnStatus.logDebug(R.string.reread_log, itemsRead);
     }
 
@@ -225,7 +209,7 @@ class LogFileHandler extends Handler {
 
         LogItem li = new LogItem(buf, len);
         if (li.verify()) {
-            VpnStatus.newLogItem(li, true);
+            VpnStatus.newLogItem(li, true, true);
         } else {
             VpnStatus.logError(String.format(Locale.getDefault(),
                     "Could not read log item from file: %d: %s",

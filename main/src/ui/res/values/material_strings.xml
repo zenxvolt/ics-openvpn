@@ -1,0 +1,14 @@
+<resources>
+    <string name="qs_syncing">Synchronizing VPN status…</string>
+    <string name="vpn_choose_profile">Choose a profile to connect</string>
+    <string name="dash_state_connected">Connected</string>
+    <string name="dash_state_connecting">Connecting…</string>
+    <string name="dash_state_disconnected">Not connected</string>
+    <string name="dash_state_error">Connection failed</string>
+    <string name="dash_connect">Connect VPN</string>
+    <string name="dash_disconnect">Disconnect VPN</string>
+    <string name="dash_tap_to_connect">Tap the button to connect</string>
+    <string name="dash_no_profile">Add or import a profile first</string>
+    <string name="dash_default_vpn">Default VPN</string>
+    <string name="dash_connected_badge">Active</string>
+</resources>

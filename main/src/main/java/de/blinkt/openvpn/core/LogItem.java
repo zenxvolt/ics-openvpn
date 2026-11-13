@@ -87,18 +87,21 @@ public class LogItem implements Parcelable {
 
     @Override
     public boolean equals(Object obj) {
-        if (!(obj instanceof LogItem))
-            return obj.equals(this);
+        if (this == obj) return true;
+        if (!(obj instanceof LogItem)) return false;
         LogItem other = (LogItem) obj;
+        return Arrays.equals(mArgs, other.mArgs)
+                && java.util.Objects.equals(mMessage, other.mMessage)
+                && mResourceId == other.mResourceId
+                && mLevel == other.mLevel
+                && mVerbosityLevel == other.mVerbosityLevel
+                && logtime == other.logtime;
+    }
 
-        return Arrays.equals(mArgs, other.mArgs) &&
-                ((other.mMessage == null && mMessage == other.mMessage) ||
-                        mMessage.equals(other.mMessage)) &&
-                mResourceId == other.mResourceId &&
-                ((mLevel == null && other.mLevel == mLevel) ||
-                        other.mLevel.equals(mLevel)) &&
-                mVerbosityLevel == other.mVerbosityLevel &&
-                logtime == other.logtime;
+    @Override
+    public int hashCode() {
+        return 31 * java.util.Objects.hash(mMessage, mResourceId, mLevel,
+                mVerbosityLevel, logtime) + Arrays.hashCode(mArgs);
     }
 
     public byte[] getMarshaledBytes() throws UnsupportedEncodingException, BufferOverflowException {

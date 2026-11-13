@@ -7,7 +7,7 @@ package de.blinkt.openvpn.activities
 
 import android.Manifest
 import android.app.Activity
-import android.app.AlertDialog
+import androidx.appcompat.app.AlertDialog
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -250,7 +250,7 @@ class ConfigConverter : BaseActivity(), FileSelectCallback, View.OnClickListener
             )// List of acceptable key types. null for any
             // alias to preselect, null if unavailable
         } catch (anf: ActivityNotFoundException) {
-            val ab = AlertDialog.Builder(this)
+            val ab = com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
             ab.setTitle(R.string.broken_image_cert_title)
             ab.setMessage(R.string.broken_image_cert)
             ab.setPositiveButton(android.R.string.ok, null)

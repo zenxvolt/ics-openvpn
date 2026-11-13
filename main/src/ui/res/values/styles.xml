@@ -5,44 +5,72 @@
 
 <resources>
 
-    <style name="blinkt.baseTheme" parent="Theme.AppCompat.DayNight.DarkActionBar">
-        <item name="colorPrimary">@color/primary</item>
-        <item name="colorPrimaryDark">@color/primary_dark</item>
-        <item name="colorAccent">@color/accent</item>
+    <style name="blinkt.baseTheme" parent="Theme.Material3.DayNight">
+        <item name="colorPrimary">@color/md_primary</item>
+        <item name="colorOnPrimary">@color/md_on_primary</item>
+        <item name="colorPrimaryContainer">@color/md_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/md_on_primary_container</item>
+        <item name="colorSecondary">@color/md_secondary</item>
+        <item name="colorOnSecondary">@color/md_on_secondary</item>
+        <item name="colorSecondaryContainer">@color/md_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/md_on_secondary_container</item>
+        <item name="colorError">@color/md_error</item>
+        <item name="colorOnError">@color/md_on_error</item>
+        <item name="colorSurface">@color/md_surface</item>
+        <item name="colorOnSurface">@color/md_on_surface</item>
+        <item name="colorSurfaceVariant">@color/md_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/md_on_surface_variant</item>
+        <item name="colorSurfaceContainerLowest">@color/md_surface_container_lowest</item>
+        <item name="colorSurfaceContainerLow">@color/md_surface_container_low</item>
+        <item name="colorSurfaceContainer">@color/md_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/md_surface_container_high</item>
+        <item name="colorSurfaceContainerHighest">@color/md_surface_container_highest</item>
+        <item name="colorOutline">@color/md_outline</item>
+        <item name="colorOutlineVariant">@color/md_outline_variant</item>
+        <item name="colorAccent">@color/md_primary</item>
+        <item name="android:colorBackground">@color/md_surface</item>
+        <item name="android:windowBackground">@color/md_surface</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="alertDialogTheme">@style/blinkt.alertDialog</item>
-
-
-        <item name="android:navigationBarColor">
-            @android:color/transparent
-        </item>
-
-        <!-- Optional: set to transparent if your app is drawing behind the status bar. -->
-        <item name="android:statusBarColor">
-            @android:color/transparent
-        </item>
-
-        <!-- Optional: set for a light status bar with dark content. -->
-        <item name="android:windowLightStatusBar">
-            true
-        </item>
+        <item name="materialAlertDialogTheme">@style/blinkt.alertDialog</item>
+        <item name="actionBarStyle">@style/blinkt.actionBar</item>
+        <item name="actionBarTheme">@style/ThemeOverlay.Material3.ActionBar</item>
+        <item name="toolbarStyle">@style/blinkt.toolbar</item>
     </style>
-
-    <style name="blinkt.dialog" parent="Theme.AppCompat.DayNight.Dialog">
-        <item name="colorPrimary">@color/primary</item>
-        <item name="colorPrimaryDark">@color/primary_dark</item>
-        <item name="colorAccent">@color/accent</item>
-        <item name="alertDialogTheme">@style/blinkt.alertDialog</item>
-    </style>
-
-    <style name="blinkt.alertDialog" parent="Theme.AppCompat.DayNight.Dialog.Alert">
-        <item name="colorPrimary">@color/primary</item>
-        <item name="colorPrimaryDark">@color/primary_dark</item>
-        <item name="colorAccent">@color/accent</item>
-    </style>
-
 
     <style name="blinkt" parent="blinkt.baseTheme" />
+    <style name="blinkt.mainTheme" parent="blinkt.baseTheme">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+    <style name="blinkt.actionBar" parent="Widget.MaterialComponents.Light.ActionBar.Solid">
+        <item name="background">?attr/colorSurface</item>
+        <item name="elevation">0dp</item>
+    </style>
+    <style name="blinkt.dialog" parent="Theme.Material3.DayNight.Dialog">
+        <item name="colorPrimary">@color/md_primary</item>
+        <item name="colorOnPrimary">@color/md_on_primary</item>
+        <item name="colorSecondary">@color/md_primary</item>
+        <item name="colorSurface">@color/md_surface</item>
+        <item name="colorOnSurface">@color/md_on_surface</item>
+        <item name="alertDialogTheme">@style/blinkt.alertDialog</item>
+        <item name="materialAlertDialogTheme">@style/blinkt.alertDialog</item>
+    </style>
+    <style name="blinkt.alertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorPrimary">@color/md_primary</item>
+        <item name="colorSurface">@color/md_surface</item>
+        <item name="colorOnSurface">@color/md_on_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/md_surface_container_high</item>
+    </style>
 
+    <style name="blinkt.toolbar" parent="Widget.Material3.Toolbar">
+        <item name="titleTextAppearance">@style/blinkt.toolbarTitle</item>
+    </style>
+
+    <style name="blinkt.toolbarTitle" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:textStyle">bold</item>
+    </style>
 
     <style name="item">
         <item name="android:layout_width">match_parent</item>
@@ -94,26 +122,19 @@
         <item name="android:windowContentOverlay">@null</item>
     </style>
 
-    <style name="blinkt.tabLayout" parent="Widget.Design.TabLayout">
-        <item name="tabIndicatorColor">?attr/colorAccent</item>
-        <item name="tabIndicatorHeight">4dp</item>
-        <item name="android:background">@color/primary</item>
-
-
-        <item name="tabBackground">@color/primary</item>
+    <style name="blinkt.tabLayout" parent="Widget.Material3.TabLayout">
+        <item name="android:background">?attr/colorSurface</item>
+        <item name="tabIndicator">@drawable/tab_indicator_rounded</item>
+        <item name="tabIndicatorFullWidth">false</item>
+        <item name="tabPaddingStart">16dp</item>
+        <item name="tabPaddingEnd">16dp</item>
+        <item name="tabIndicatorColor">?attr/colorPrimary</item>
+        <item name="tabSelectedTextColor">?attr/colorPrimary</item>
+        <item name="tabTextColor">?attr/colorOnSurfaceVariant</item>
         <item name="tabTextAppearance">@style/AppTabTextAppearance</item>
-        <item name="tabSelectedTextColor">@android:color/white</item>
-
-        <item name="tabGravity">fill</item>
-        <item name="tabMaxWidth">0dp</item>
-
     </style>
 
-    <style name="AppTabTextAppearance" parent="TextAppearance.Design.Tab">
-        <item name="textAllCaps">true</item>
-        <item name="android:textStyle">bold</item>
-        <item name="android:textColor">@color/tab_text</item>
+    <style name="AppTabTextAppearance" parent="TextAppearance.Material3.TitleSmall">
+        <item name="textAllCaps">false</item>
     </style>
-
-
 </resources>

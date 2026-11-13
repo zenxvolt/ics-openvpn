@@ -33,6 +33,8 @@ android {
     ndkVersion = "30.0.14904198"
 
     defaultConfig {
+        // Optional override, e.g. -PappId=com.example.openvpn (defaults to the namespace)
+        project.findProperty("appId")?.toString()?.let { applicationId = it }
         minSdk = 23
         targetSdk = 37
         //targetSdkPreview = "UpsideDownCake"

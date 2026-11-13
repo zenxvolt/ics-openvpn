@@ -19,6 +19,8 @@ interface IServiceStatus {
            */
         void unregisterStatusCallback(in IStatusCallbacks cb);
 
+        oneway void clearLog();
+
         /**
          * Returns the last connected VPN
          */

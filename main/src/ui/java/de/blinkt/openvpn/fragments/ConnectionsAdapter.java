@@ -5,7 +5,7 @@
 
 package de.blinkt.openvpn.fragments;
 
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.content.Context;
 import androidx.recyclerview.widget.RecyclerView;
 import android.text.Editable;
@@ -177,7 +177,7 @@ public class ConnectionsAdapter extends RecyclerView.Adapter<ConnectionsAdapter.
     class ConnectionsHolder extends RecyclerView.ViewHolder {
         private final EditText mServerNameView;
         private final EditText mPortNumberView;
-        private final Switch mRemoteSwitch;
+        private final com.google.android.material.materialswitch.MaterialSwitch mRemoteSwitch;
         private final RadioGroup mProtoGroup;
         private final EditText mCustomOptionText;
         private final CheckBox mCustomOptionCB;
@@ -390,7 +390,7 @@ public class ConnectionsAdapter extends RecyclerView.Adapter<ConnectionsAdapter.
 
             mDeleteButton.setOnClickListener(
                     v -> {
-                        AlertDialog.Builder ab = new AlertDialog.Builder(mContext);
+                        AlertDialog.Builder ab = new com.google.android.material.dialog.MaterialAlertDialogBuilder(mContext);
                         ab.setTitle(R.string.query_delete_remote);
                         ab.setPositiveButton(R.string.keep, null);
                         ab.setNegativeButton(R.string.delete, (dialog, which) -> {
