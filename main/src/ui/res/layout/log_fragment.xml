@@ -3,16 +3,16 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical">
     <com.google.android.material.card.MaterialCardView android:layout_width="match_parent"
-        android:layout_height="wrap_content" android:layout_margin="12dp"
+        android:layout_height="wrap_content" android:layout_marginStart="16dp" android:layout_marginEnd="16dp" android:layout_marginTop="12dp" android:layout_marginBottom="8dp"
         app:cardCornerRadius="20dp" app:cardElevation="0dp" app:strokeWidth="0dp"
-        app:cardBackgroundColor="?attr/colorPrimaryContainer">
+        app:cardBackgroundColor="?attr/colorSurfaceContainerLow">
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
             android:padding="16dp" android:orientation="vertical">
             <include layout="@layout/log_sliders" />
             <TextView android:id="@+id/speed" android:layout_width="match_parent"
                 android:layout_height="wrap_content" android:text="@string/speed_waiting"
                 android:textAppearance="@style/TextAppearance.Material3.TitleSmall"
-                android:textColor="?attr/colorOnPrimaryContainer" android:accessibilityLiveRegion="polite" />
+                android:textColor="?attr/colorOnSurface" android:accessibilityLiveRegion="polite" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
     <com.google.android.material.button.MaterialButton android:id="@+id/trigger_pending_action"

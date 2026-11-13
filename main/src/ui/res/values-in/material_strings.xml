@@ -1,4 +1,14 @@
 <resources>
     <string name="qs_syncing">Menyinkronkan status VPN…</string>
     <string name="vpn_choose_profile">Pilih profil untuk terhubung</string>
+    <string name="dash_state_connected">Terhubung</string>
+    <string name="dash_state_connecting">Menghubungkan…</string>
+    <string name="dash_state_disconnected">Tidak terhubung</string>
+    <string name="dash_state_error">Koneksi gagal</string>
+    <string name="dash_connect">Hubungkan VPN</string>
+    <string name="dash_disconnect">Putuskan VPN</string>
+    <string name="dash_tap_to_connect">Ketuk tombol untuk terhubung</string>
+    <string name="dash_no_profile">Tambah atau impor profil terlebih dahulu</string>
+    <string name="dash_default_vpn">VPN default</string>
+    <string name="dash_connected_badge">Aktif</string>
 </resources>

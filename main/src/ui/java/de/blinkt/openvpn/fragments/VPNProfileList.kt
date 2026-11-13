@@ -37,6 +37,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
 import androidx.annotation.RequiresApi
 import androidx.fragment.app.ListFragment
+import com.google.android.material.card.MaterialCardView
 import de.blinkt.openvpn.LaunchVPN
 import de.blinkt.openvpn.R
 import de.blinkt.openvpn.VpnProfile
@@ -600,9 +601,17 @@ class VPNProfileList : ListFragment(), View.OnClickListener, StateListener {
             val warningText = getWarningText(requireContext(), profile)
 
             if (profile === defaultVPN) {
-                if (warningText.length > 0) warningText.append(" ")
-                warningText.append(SpannableString("Default VPN"))
+                if (warningText.length > 0) warningText.append(" · ")
+                warningText.append(SpannableString(getString(R.string.dash_default_vpn)))
             }
+
+            val isActive = VpnStatus.isVPNActive() &&
+                    profile.getUUIDString() == VpnStatus.getLastConnectedVPNProfile()
+            val density = resources.displayMetrics.density
+            v.findViewById<MaterialCardView>(R.id.vpn_card).strokeWidth =
+                if (isActive) (2 * density).toInt() else 0
+            v.findViewById<View>(R.id.vpn_item_active_dot).visibility =
+                if (isActive) View.VISIBLE else View.GONE
 
             if (profile.getUUIDString() == VpnStatus.getLastConnectedVPNProfile()) {
                 subtitle.setText(mLastStatusMessage)

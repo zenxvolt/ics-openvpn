@@ -5,6 +5,13 @@
 package de.blinkt.openvpn.activities
 
 import android.content.Intent
+import android.content.res.ColorStateList
+import android.view.View
+import androidx.core.content.ContextCompat
+import com.google.android.material.button.MaterialButton
+import de.blinkt.openvpn.LaunchVPN
+import de.blinkt.openvpn.VpnProfile
+import de.blinkt.openvpn.core.OpenVPNService
 import android.net.Uri
 import android.os.Bundle
 import android.view.Menu
@@ -24,17 +31,74 @@ import de.blinkt.openvpn.fragments.ImportRemoteConfig.Companion.newInstance
 import de.blinkt.openvpn.views.ScreenSlidePagerAdapter
 
 class MainActivity : BaseActivity(), VpnStatus.StateListener {
+    private fun dashboardProfile(): VpnProfile? {
+        if (VpnStatus.isVPNActive())
+            ProfileManager.get(this, VpnStatus.getLastConnectedVPNProfile())?.let { return it }
+        ProfileManager.getLastConnectedProfile(this)?.let { return it }
+        ProfileManager.getAlwaysOnVPN(this)?.let { return it }
+        val profiles = ProfileManager.getInstance(this).profiles
+        return if (profiles.size == 1) profiles.first() else null
+    }
+
     private fun refreshVpnStatus() {
         synchronized(VpnStatus::class.java) {
-            val text = if (VpnStatus.isStatusAvailable())
-                VpnStatus.getLastCleanLogMessage(this, true).ifEmpty { getString(R.string.state_disconnected) }
-            else getString(R.string.qs_syncing)
-            findViewById<TextView>(R.id.dashboard_status)?.text = text
-            val profile = if (VpnStatus.isVPNActive()) ProfileManager.get(
-                this, VpnStatus.getLastConnectedVPNProfile()) else null
+            val available = VpnStatus.isStatusAvailable()
+            val active = VpnStatus.isVPNActive()
+            val level = VpnStatus.getLastStateLevel()
+
+            val (labelRes, colorRes) = when {
+                !available -> R.string.qs_syncing to R.color.vpn_state_disconnected
+                level == ConnectionStatus.LEVEL_CONNECTED ->
+                    R.string.dash_state_connected to R.color.vpn_state_connected
+                level == ConnectionStatus.LEVEL_AUTH_FAILED ->
+                    R.string.dash_state_error to R.color.vpn_state_error
+                active -> R.string.dash_state_connecting to R.color.vpn_state_connecting
+                else -> R.string.dash_state_disconnected to R.color.vpn_state_disconnected
+            }
+            val color = ContextCompat.getColor(this, colorRes)
+            val colorList = ColorStateList.valueOf(color)
+
+            findViewById<TextView>(R.id.dashboard_state_label)?.setText(labelRes)
+            findViewById<View>(R.id.dashboard_state_dot)?.backgroundTintList = colorList
+            findViewById<View>(R.id.dashboard_power_halo)?.backgroundTintList = colorList
+            findViewById<MaterialButton>(R.id.dashboard_power)?.apply {
+                backgroundTintList = colorList
+                isEnabled = available
+                contentDescription =
+                    getString(if (active) R.string.dash_disconnect else R.string.dash_connect)
+            }
+
+            val profile = dashboardProfile()
             findViewById<TextView>(R.id.dashboard_profile)?.text =
                 profile?.name ?: getString(R.string.vpn_choose_profile)
+
+            val detail = when {
+                !available -> getString(R.string.qs_syncing)
+                active || level == ConnectionStatus.LEVEL_AUTH_FAILED ->
+                    VpnStatus.getLastCleanLogMessage(this, true)
+                profile != null -> getString(R.string.dash_tap_to_connect)
+                else -> getString(R.string.dash_no_profile)
+            }
+            findViewById<TextView>(R.id.dashboard_status)?.text = detail
         }
+    }
+
+    private fun onPowerClicked() {
+        if (VpnStatus.isVPNActive()) {
+            startActivity(Intent(this, DisconnectVPN::class.java))
+            return
+        }
+        val profile = dashboardProfile()
+        if (profile == null) {
+            Toast.makeText(this, R.string.vpn_choose_profile, Toast.LENGTH_SHORT).show()
+            mPager.currentItem = 0
+            return
+        }
+        val intent = Intent(this, LaunchVPN::class.java)
+            .putExtra(LaunchVPN.EXTRA_KEY, profile.getUUIDString())
+            .putExtra(OpenVPNService.EXTRA_START_REASON, "main dashboard")
+            .setAction(Intent.ACTION_MAIN)
+        startActivity(intent)
     }
 
     override fun updateState(state: String?, message: String?, resId: Int,
@@ -49,6 +113,7 @@ class MainActivity : BaseActivity(), VpnStatus.StateListener {
     override fun onStart() {
         super.onStart()
         VpnStatus.addStateListener(this)
+        refreshVpnStatus()
     }
 
     override fun onStop() {
@@ -79,7 +144,7 @@ class MainActivity : BaseActivity(), VpnStatus.StateListener {
         val minimalUi = GlobalPreferences.getMinimalUi()
         val compactLandscape = resources.configuration.screenHeightDp < 480
         if (isAndroidTV || minimalUi || compactLandscape)
-            view.findViewById<android.view.View>(R.id.vpn_dashboard).visibility = android.view.View.GONE
+            view.findViewById<View>(R.id.vpn_dashboard).visibility = View.GONE
         if (isAndroidTV || minimalUi) {
             mPagerAdapter.addTab(R.string.minimal_ui, MinimalUI::class.java)
         }
@@ -102,6 +167,8 @@ class MainActivity : BaseActivity(), VpnStatus.StateListener {
         TabLayoutMediator(tablayout, mPager) { tab, position ->
             tab.text = mPagerAdapter.getPageTitle(position)
         }.attach()
+
+        view.findViewById<MaterialButton>(R.id.dashboard_power).setOnClickListener { onPowerClicked() }
 
         setUpEdgeEdgeInsetsListener(view, R.id.root_linear_layout)
         setContentView(view)

@@ -4,6 +4,7 @@
   -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:tools="http://schemas.android.com/tools"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
@@ -19,7 +20,12 @@
                 android:id="@+id/notification_permission"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
                 android:padding="@dimen/stdpadding"
+                android:background="@drawable/bg_rounded_16"
+                android:backgroundTint="?attr/colorSecondaryContainer"
+                android:textColor="?attr/colorOnSecondaryContainer"
+                android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
                 android:drawableStart="@drawable/notifications"
                 android:drawablePadding="@dimen/stdpadding"
                 tools:visibility="visible"
@@ -39,50 +45,67 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:gravity="center"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
+
+            <ImageView
+                    android:layout_width="88dp"
+                    android:layout_height="88dp"
+                    android:background="@drawable/bg_circle"
+                    android:backgroundTint="?attr/colorPrimaryContainer"
+                    android:importantForAccessibility="no"
+                    android:padding="24dp"
+                    android:src="@drawable/ic_shortcut_vpn_key"
+                    app:tint="?attr/colorOnPrimaryContainer" />
 
             <TextView
-                    android:layout_width="fill_parent"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:gravity="center"
                     android:text="@string/no_vpn_profiles_defined"
-                    android:textAppearance="?android:attr/textAppearanceLarge" />
-
-            <Space
-                    android:layout_width="match_parent"
-                    android:layout_height="12sp" />
-
-
-            <TextView
-                    android:layout_width="fill_parent"
-                    android:layout_height="wrap_content"
-                    android:autoLink="web"
-                    android:text="@string/openvpn_is_no_free_vpn" />
-
-            <Space
-                    android:layout_width="match_parent"
-                    android:layout_height="12sp" />
-
+                    android:textAppearance="@style/TextAppearance.Material3.TitleLarge"
+                    android:textColor="?attr/colorOnSurface" />
 
             <TextView
                     android:id="@+id/add_new_vpn_hint"
-                    android:layout_width="fill_parent"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:gravity="center"
+                    android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     tools:ignore="SelectableText" />
 
             <TextView
                     android:id="@+id/import_vpn_hint"
-                    android:layout_width="fill_parent"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:gravity="center"
+                    android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     tools:ignore="SelectableText" />
 
-            <Space
+            <TextView
                     android:layout_width="match_parent"
-                    android:layout_height="12sp" />
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:autoLink="web"
+                    android:gravity="center"
+                    android:text="@string/openvpn_is_no_free_vpn"
+                    android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
 
             <TextView
-                    android:layout_width="fill_parent"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/faq_hint" />
+                    android:layout_marginTop="8dp"
+                    android:gravity="center"
+                    android:text="@string/faq_hint"
+                    android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
         </LinearLayout>
 
     </LinearLayout>
