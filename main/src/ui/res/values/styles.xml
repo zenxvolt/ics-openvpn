@@ -28,6 +28,10 @@
         <item name="windowNoTitle">true</item>
     </style>
 
+    <style name="TextAppearance.OpenVPN.NavigationLabel" parent="TextAppearance.Material3.LabelMedium">
+        <item name="android:textSize">12sp</item>
+    </style>
+
     <style name="blinkt.dialog" parent="Theme.Material3.DayNight.Dialog">
         <item name="colorPrimary">@color/shell_primary</item>
     </style>

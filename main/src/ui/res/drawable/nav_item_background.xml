@@ -1,9 +1,13 @@
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_checked="true">
-        <inset android:insetLeft="3dp" android:insetRight="3dp" android:insetTop="6dp" android:insetBottom="6dp">
+        <inset
+            android:insetLeft="4dp"
+            android:insetRight="4dp"
+            android:insetTop="4dp"
+            android:insetBottom="4dp">
             <shape>
                 <solid android:color="?attr/colorSecondaryContainer" />
-                <corners android:radius="40dp" />
+                <corners android:radius="28dp" />
             </shape>
         </inset>
     </item>
