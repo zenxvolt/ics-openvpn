@@ -234,7 +234,7 @@ public class Settings_Basic extends KeyChainSettingsFragment implements OnItemSe
         super.onSaveInstanceState(outState);
         savePreferences();
         if (mProfile != null) {
-            outState.putString(getActivity().getPackageName() + "profileUUID", mProfile.getUUID().toString());
+            outState.putString(VpnProfile.EXTRA_PROFILEUUID, mProfile.getUUID().toString());
         }
     }
 

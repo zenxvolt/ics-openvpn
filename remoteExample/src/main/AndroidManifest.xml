@@ -27,6 +27,6 @@
         </activity>
     </application>
     <queries>
-        <package android:name="de.blinkt.openvpn"/>
+        <package android:name="com.zenxvolt.openvpn"/>
     </queries>
 </manifest>

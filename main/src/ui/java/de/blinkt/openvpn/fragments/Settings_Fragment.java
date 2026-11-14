@@ -20,7 +20,7 @@ public abstract class Settings_Fragment extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        String profileUuid = getArguments().getString(getActivity().getPackageName() + ".profileUUID");
+        String profileUuid = getArguments().getString(VpnProfile.EXTRA_PROFILEUUID);
         mProfile = ProfileManager.get(getActivity(), profileUuid);
         getActivity().setTitle(getString(R.string.edit_profile_title, mProfile.getName()));
     }

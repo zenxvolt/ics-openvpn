@@ -188,7 +188,7 @@ public class MainFragment extends Fragment implements View.OnClickListener, Hand
     private void bindService() {
 
         Intent icsopenvpnService = new Intent(IOpenVPNAPIService.class.getName());
-        icsopenvpnService.setPackage("de.blinkt.openvpn");
+        icsopenvpnService.setPackage("com.zenxvolt.openvpn");
 
         getActivity().bindService(icsopenvpnService, mConnection, Context.BIND_AUTO_CREATE);
     }

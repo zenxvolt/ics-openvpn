@@ -57,6 +57,19 @@ jobs:
       - name: Build the app
         working-directory: ${{ env.BUILD_DIR }}
         run: bash gradlew assemble${{ matrix.target }}Release
+      - name: Verify APK application ID
+        working-directory: ${{ env.BUILD_DIR }}
+        shell: bash
+        run: |
+          shopt -s globstar nullglob
+          apks=(main/build/outputs/apk/**/*.apk)
+          (( ${#apks[@]} > 0 ))
+          analyzer="$(dirname "$(command -v sdkmanager)")/apkanalyzer"
+          for apk in "${apks[@]}"; do
+            actual_id="$("$analyzer" manifest application-id "$apk")"
+            echo "$apk -> $actual_id"
+            [[ "$actual_id" == "com.zenxvolt.openvpn" ]]
+          done
       - name: Run Unit tests
         working-directory: ${{ env.BUILD_DIR }}
         run: bash gradlew -PtestBuildType=release test${{ matrix.target }}ReleaseUnitTest

@@ -112,8 +112,10 @@ public class SendDumpFragment extends Fragment {
             return;
         }
 
-        uris.add(Uri.parse("content://de.blinkt.openvpn.FileProvider/" + ldump.first.getName()));
-        uris.add(Uri.parse("content://de.blinkt.openvpn.FileProvider/" + ldump.first.getName() + ".log"));
+        Uri provider = new Uri.Builder().scheme("content")
+                .authority(requireContext().getPackageName() + ".FileProvider").build();
+        uris.add(Uri.withAppendedPath(provider, ldump.first.getName()));
+        uris.add(Uri.withAppendedPath(provider, ldump.first.getName() + ".log"));
 
         emailIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         emailIntent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris);

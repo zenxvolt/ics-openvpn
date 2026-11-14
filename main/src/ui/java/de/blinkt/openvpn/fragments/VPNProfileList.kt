@@ -437,7 +437,7 @@ class VPNProfileList : ListFragment(), StateListener {
         mEditProfile = profile
         val vprefintent = Intent(getActivity(), VPNPreferences::class.java)
             .putExtra(
-                getActivity()!!.getPackageName() + ".profileUUID",
+                VpnProfile.EXTRA_PROFILEUUID,
                 profile.getUUID().toString()
             )
 

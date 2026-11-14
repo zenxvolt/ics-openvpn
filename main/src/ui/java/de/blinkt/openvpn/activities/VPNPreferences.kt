@@ -48,7 +48,7 @@ class VPNPreferences : BaseActivity(), VpnStatus.ProfileNotifyListener {
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
-        outState.putString("$packageName.profileUUID", mProfileUUID)
+        outState.putString(VpnProfile.EXTRA_PROFILEUUID, mProfileUUID)
         super.onSaveInstanceState(outState)
     }
 
@@ -72,11 +72,11 @@ class VPNPreferences : BaseActivity(), VpnStatus.ProfileNotifyListener {
             val intent = intent
 
             if (intent != null) {
-                var profileUUID = intent.getStringExtra("$packageName.profileUUID")
+                var profileUUID = intent.getStringExtra(VpnProfile.EXTRA_PROFILEUUID)
                 if (profileUUID == null) {
                     val initialArguments =
                         getIntent().getBundleExtra(PreferenceActivity.EXTRA_SHOW_FRAGMENT_ARGUMENTS)
-                    profileUUID = initialArguments!!.getString("$packageName.profileUUID")
+                    profileUUID = initialArguments!!.getString(VpnProfile.EXTRA_PROFILEUUID)
                 }
                 if (profileUUID != null) {
                     mProfileUUID = profileUUID
@@ -88,9 +88,9 @@ class VPNPreferences : BaseActivity(), VpnStatus.ProfileNotifyListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         checkMinimalUIDisabled()
 
-        mProfileUUID = intent.getStringExtra("$packageName.profileUUID")
+        mProfileUUID = intent.getStringExtra(VpnProfile.EXTRA_PROFILEUUID)
         if (savedInstanceState != null) {
-            val savedUUID = savedInstanceState.getString("$packageName.profileUUID")
+            val savedUUID = savedInstanceState.getString(VpnProfile.EXTRA_PROFILEUUID)
             if (savedUUID != null) mProfileUUID = savedUUID
         }
         super.onCreate(savedInstanceState)
@@ -118,7 +118,7 @@ class VPNPreferences : BaseActivity(), VpnStatus.ProfileNotifyListener {
 
 
         val fragmentArguments = Bundle()
-        fragmentArguments.putString("$packageName.profileUUID", mProfileUUID)
+        fragmentArguments.putString(VpnProfile.EXTRA_PROFILEUUID, mProfileUUID)
         mPagerAdapter.setFragmentArgs(fragmentArguments)
 
         if (mProfile!!.mUserEditable) {

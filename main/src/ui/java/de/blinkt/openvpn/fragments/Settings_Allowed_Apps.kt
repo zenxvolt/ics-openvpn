@@ -45,7 +45,7 @@ class Settings_Allowed_Apps : Fragment(), AdapterView.OnItemClickListener, View.
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val profileUuid = requireArguments().getString(requireActivity().packageName + ".profileUUID")
+        val profileUuid = requireArguments().getString(VpnProfile.EXTRA_PROFILEUUID)
         mProfile = ProfileManager.get(activity, profileUuid)
         requireActivity().title = getString(R.string.edit_profile_title, mProfile.name)
         setHasOptionsMenu(true)

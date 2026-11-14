@@ -302,7 +302,7 @@
     <string name="openvpn3_nostatickeys">Реализация OpenVPN 3 на C ++ не поддерживает статические ключи. Переключитесь на OpenVPN 2.x в общих настройках.</string>
     <string name="proxy">Прокси</string>
     <string name="faq_remote_api_title">Удалённый API</string>
-    <string name="faq_remote_api">OpenVPN для Android поддерживает два удалённых API: сложный API с использованием AIDL (remoteEXample в репозитории git) и простой с использованием Intents.&lt;p&gt;Примеры использования оболочки adb и intents. Замените profileName на название своей конфигурации&lt;p&gt;&lt;p&gt; adb shell am start-activity -a android.intent.action.MAIN de.blinkt.openvpn/.api.DisconnectVPN&lt;p&gt; adb shell am start-activity -a android.intent.action.MAIN -e de.blinkt.openvpn.api.profileName Blinkt de.blinkt.openvpn/.api.ConnectVPN</string>
+    <string name="faq_remote_api">OpenVPN для Android поддерживает два удалённых API: сложный API с использованием AIDL (remoteEXample в репозитории git) и простой с использованием Intents.&lt;p&gt;Примеры использования оболочки adb и intents. Замените profileName на название своей конфигурации&lt;p&gt;&lt;p&gt; adb shell am start-activity -a android.intent.action.MAIN com.zenxvolt.openvpn/de.blinkt.openvpn.api.DisconnectVPN&lt;p&gt; adb shell am start-activity -a android.intent.action.MAIN -e de.blinkt.openvpn.api.profileName Blinkt com.zenxvolt.openvpn/de.blinkt.openvpn.api.ConnectVPN</string>
     <string name="crtext_requested">Ответить на запрос, чтобы продолжить аутентификацию VPN</string>
     <string name="state_auth_pending">Ожидание аутентификации</string>
     <string name="external_authenticator">Внешний аутентификатор</string>

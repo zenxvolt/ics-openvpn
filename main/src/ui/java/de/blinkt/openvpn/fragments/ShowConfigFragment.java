@@ -106,7 +106,7 @@ public class ShowConfigFragment extends Fragment {
     }
 
 	private void populateConfigText() {
-		String profileUUID = requireArguments().getString(requireActivity().getPackageName() + ".profileUUID");
+		String profileUUID = requireArguments().getString(VpnProfile.EXTRA_PROFILEUUID);
 		final VpnProfile vp = ProfileManager.get(getActivity(),profileUUID);
 		int check=vp.checkProfile(getActivity());
 
