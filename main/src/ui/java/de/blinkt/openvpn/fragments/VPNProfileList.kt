@@ -245,17 +245,7 @@ class VPNProfileList : ListFragment(), StateListener {
     }
 
     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
-        menu.add(0, MENU_ADD_PROFILE, 1, R.string.menu_add_profile)
-            .setIcon(R.drawable.nav_add)
-            .setAlphabeticShortcut('a')
-            .setTitleCondensed(getActivity()!!.getString(R.string.add))
-            .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
-
-        menu.add(0, MENU_IMPORT_PROFILE, 2, R.string.menu_import)
-            .setIcon(R.drawable.nav_import)
-            .setAlphabeticShortcut('i')
-            .setTitleCondensed(getActivity()!!.getString(R.string.menu_import_short))
-            .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+        inflater.inflate(R.menu.profile_actions, menu)
 
         menu.add(0, MENU_CHANGE_SORTING, 0, R.string.change_sorting)
             .setIcon(R.drawable.ic_sort)
@@ -272,10 +262,10 @@ class VPNProfileList : ListFragment(), StateListener {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         val itemId = item.getItemId()
-        if (itemId == MENU_ADD_PROFILE) {
+        if (itemId == R.id.profile_add) {
             onAddOrDuplicateProfile(null)
             return true
-        } else if (itemId == MENU_IMPORT_PROFILE) {
+        } else if (itemId == R.id.profile_import) {
             return startImportConfigFilePicker()
         } else if (itemId == MENU_CHANGE_SORTING) {
             return changeSorting()
@@ -524,12 +514,10 @@ class VPNProfileList : ListFragment(), StateListener {
 
         // Shortcut version is increased to refresh all shortcuts
         const val SHORTCUT_VERSION: Int = 1
-        private val MENU_ADD_PROFILE = Menu.FIRST
         private const val EDIT_VPN_CONFIG = 92
         private const val SELECT_PROFILE = 43
         private const val IMPORT_PROFILE = 231
         private const val FILE_PICKER_RESULT_KITKAT = 392
-        private val MENU_IMPORT_PROFILE = Menu.FIRST + 1
         private val MENU_CHANGE_SORTING = Menu.FIRST + 2
         private val MENU_IMPORT_AS = Menu.FIRST + 3
         private const val PREF_SORT_BY_LRU = "sortProfilesByLRU"

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/profile_add"
+        android:orderInCategory="1"
+        android:alphabeticShortcut="a"
+        android:icon="@drawable/nav_add"
+        android:title="@string/menu_add_profile"
+        android:titleCondensed="@string/add"
+        app:iconTint="?attr/colorOnSurfaceVariant"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/profile_import"
+        android:orderInCategory="2"
+        android:alphabeticShortcut="i"
+        android:icon="@drawable/nav_import"
+        android:title="@string/menu_import"
+        android:titleCondensed="@string/menu_import_short"
+        app:iconTint="?attr/colorOnSurfaceVariant"
+        app:showAsAction="always" />
+</menu>
