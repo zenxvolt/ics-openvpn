@@ -88,15 +88,14 @@ public class LogItem implements Parcelable {
     @Override
     public boolean equals(Object obj) {
         if (!(obj instanceof LogItem))
-            return obj.equals(this);
+            return false;
         LogItem other = (LogItem) obj;
 
-        return Arrays.equals(mArgs, other.mArgs) &&
-                ((other.mMessage == null && mMessage == other.mMessage) ||
-                        mMessage.equals(other.mMessage)) &&
+        return (Arrays.equals(mArgs, other.mArgs) ||
+                ((mArgs == null || mArgs.length == 0) && (other.mArgs == null || other.mArgs.length == 0))) &&
+                java.util.Objects.equals(mMessage, other.mMessage) &&
                 mResourceId == other.mResourceId &&
-                ((mLevel == null && other.mLevel == mLevel) ||
-                        other.mLevel.equals(mLevel)) &&
+                mLevel == other.mLevel &&
                 mVerbosityLevel == other.mVerbosityLevel &&
                 logtime == other.logtime;
     }

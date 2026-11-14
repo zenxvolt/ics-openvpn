@@ -9,6 +9,12 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
+import androidx.activity.OnBackPressedCallback
+import androidx.fragment.app.Fragment
+import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.bottomnavigation.BottomNavigationView
+import de.blinkt.openvpn.core.Preferences
 import android.widget.Toast
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.tabs.TabLayout
@@ -20,12 +26,98 @@ import de.blinkt.openvpn.fragments.ImportRemoteConfig.Companion.newInstance
 import de.blinkt.openvpn.views.ScreenSlidePagerAdapter
 
 class MainActivity : BaseActivity() {
+    private val legacyNavigation get() = isAndroidTV || GlobalPreferences.getMinimalUi()
+    private lateinit var navigation: BottomNavigationView
+    private var destination = R.id.go_home
+    private val setupPreferences by lazy { Preferences.getDefaultSharedPreferences(this) }
+
+    private val navigateBack = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() {
+            if (currentPage() is PermissionSetup) finish()
+            else if (currentPage() is FaqFragment || currentPage() is AboutFragment || currentPage() is SendDumpFragment)
+                display(R.id.go_settings)
+            else display(R.id.go_home)
+        }
+    }
+
     private lateinit var mPager: ViewPager2
     private lateinit var mPagerAdapter: ScreenSlidePagerAdapter
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        if (legacyNavigation) setTheme(R.style.blinkt)
         super.onCreate(savedInstanceState)
+        if (legacyNavigation) {
+            title = getString(R.string.brand_short)
+            createLegacyNavigation()
+            return
+        }
+        setContentView(R.layout.navigation_shell)
+        applyShellInsets(R.id.shell_root)
+        setSupportActionBar(findViewById<MaterialToolbar>(R.id.shell_toolbar))
+        navigation = findViewById(R.id.navigation)
+        destination = savedInstanceState?.getInt("destination", R.id.go_home) ?: R.id.go_home
+        navigation.menu.findItem(destination).isChecked = true
+        navigation.setOnItemSelectedListener {
+            display(it.itemId)
+            true
+        }
+        onBackPressedDispatcher.addCallback(this, navigateBack)
+        if (currentPage() == null) {
+            if (setupPreferences.getBoolean("permissionSetupComplete", false)) display(destination)
+            else showPage(PermissionSetup())
+        } else updateChrome()
+    }
+
+    private fun currentPage() = supportFragmentManager.findFragmentById(R.id.shell_content)
+
+    private fun showPage(page: Fragment) {
+        supportFragmentManager.beginTransaction().setReorderingAllowed(true)
+            .replace(R.id.shell_content, page).commitNow()
+        updateChrome()
+    }
+
+    private fun updateChrome() {
+        val page = currentPage()
+        val setup = page is PermissionSetup
+        val detail = page is FaqFragment || page is AboutFragment || page is SendDumpFragment
+        navigation.visibility = if (setup) View.GONE else View.VISIBLE
+        supportActionBar?.setDisplayHomeAsUpEnabled(detail)
+        title = getString(when (page) {
+            is FaqFragment -> R.string.faq
+            is AboutFragment -> R.string.about
+            is SendDumpFragment -> R.string.crashdump
+            else -> R.string.brand_short
+        })
+        navigateBack.isEnabled = setup || detail || destination != R.id.go_home
+        invalidateOptionsMenu()
+    }
+
+    fun finishSetup() {
+        setupPreferences.edit().putBoolean("permissionSetupComplete", true).apply()
+        display(R.id.go_home)
+        handleEntryIntent()
+    }
+
+    fun display(id: Int) {
+        destination = id
+        navigation.menu.findItem(id).isChecked = true
+        val fragment = when (id) {
+            R.id.go_profiles -> VPNProfileList()
+            R.id.go_settings -> GeneralSettings()
+            else -> HomeFragment()
+        }
+        if (currentPage()?.javaClass != fragment.javaClass) showPage(fragment)
+    }
+
+    fun showSettingsPage(page: Fragment) = showPage(page)
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putInt("destination", destination)
+        super.onSaveInstanceState(outState)
+    }
+
+    private fun createLegacyNavigation() {
         val view = layoutInflater.inflate(R.layout.main_activity, null)
 
         // Instantiate a ViewPager and a PagerAdapter.
@@ -73,6 +165,16 @@ class MainActivity : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (!legacyNavigation && currentPage() is PermissionSetup) return
+        handleEntryIntent()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+    }
+
+    private fun handleEntryIntent() {
         val intent = intent
         if (intent != null) {
             val action = intent.action
@@ -82,8 +184,11 @@ class MainActivity : BaseActivity() {
             }
             val page = intent.getStringExtra("PAGE")
             if ("graph" == page) {
-                mPager.currentItem = 1
+                if (!GlobalPreferences.getMinimalUi())
+                    startActivity(Intent(this, LogWindow::class.java).putExtra("PAGE", "graph"))
             }
+            if (!legacyNavigation && intent.action == "android.service.quicksettings.action.QS_TILE_PREFERENCES")
+                display(R.id.go_settings)
             setIntent(null)
         }
     }
@@ -110,7 +215,7 @@ class MainActivity : BaseActivity() {
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        if (!GlobalPreferences.getMinimalUi())
+        if (!GlobalPreferences.getMinimalUi() && (legacyNavigation || currentPage() !is PermissionSetup))
             menuInflater.inflate(R.menu.main_menu, menu)
         return super.onCreateOptionsMenu(menu)
     }
@@ -119,6 +224,11 @@ class MainActivity : BaseActivity() {
         if (item.itemId == R.id.show_log) {
             val showLog = Intent(this, LogWindow::class.java)
             startActivity(showLog)
+            return true
+        }
+        if (item.itemId == android.R.id.home && !legacyNavigation) {
+            navigateBack.handleOnBackPressed()
+            return true
         }
         return super.onOptionsItemSelected(item)
     }

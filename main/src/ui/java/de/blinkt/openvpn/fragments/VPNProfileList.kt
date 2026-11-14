@@ -4,23 +4,18 @@
  */
 package de.blinkt.openvpn.fragments
 
-import android.Manifest
 import android.app.Activity
-import android.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.content.pm.ShortcutInfo
 import android.content.pm.ShortcutManager
-import android.graphics.drawable.Drawable
 import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PersistableBundle
-import android.text.Html
-import android.text.SpannableString
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuInflater
@@ -29,18 +24,13 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.EditText
-import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.result.ActivityResultCallback
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
 import androidx.annotation.RequiresApi
 import androidx.fragment.app.ListFragment
 import de.blinkt.openvpn.LaunchVPN
 import de.blinkt.openvpn.R
 import de.blinkt.openvpn.VpnProfile
-import de.blinkt.openvpn.activities.BaseActivity
 import de.blinkt.openvpn.activities.ConfigConverter
 import de.blinkt.openvpn.activities.DisconnectVPN
 import de.blinkt.openvpn.activities.FileSelect
@@ -59,15 +49,11 @@ import java.util.LinkedList
 import java.util.TreeSet
 import kotlin.math.min
 
-class VPNProfileList : ListFragment(), View.OnClickListener, StateListener {
+class VPNProfileList : ListFragment(), StateListener {
     protected var mEditProfile: VpnProfile? = null
     private var mLastStatusMessage: String? = null
     private var mArrayadapter: ArrayAdapter<VpnProfile>? = null
-    private var mLastIntent: Intent? = null
     private var defaultVPN: VpnProfile? = null
-    private lateinit var mPermissionView: View
-    private lateinit var mPermReceiver: ActivityResultLauncher<String>
-
     override fun updateState(
         state: String?,
         logmessage: String?,
@@ -75,12 +61,12 @@ class VPNProfileList : ListFragment(), View.OnClickListener, StateListener {
         level: ConnectionStatus?,
         intent: Intent?
     ) {
-        requireActivity().runOnUiThread(Runnable {
+        activity?.runOnUiThread {
+            if (!isResumed || view == null) return@runOnUiThread
             mLastStatusMessage = VpnStatus.getLastCleanLogMessage(getActivity())
-            mLastIntent = intent
             mArrayadapter!!.notifyDataSetChanged()
             showUserRequestDialogIfNeeded(level, intent)
-        })
+        }
     }
 
     private fun showUserRequestDialogIfNeeded(level: ConnectionStatus?, intent: Intent?): Boolean {
@@ -88,8 +74,11 @@ class VPNProfileList : ListFragment(), View.OnClickListener, StateListener {
             if (intent != null && intent.getStringExtra(OpenVPNService.EXTRA_CHALLENGE_TXT) != null) {
                 val pwInputFrag = newInstance(intent, false)
 
-                pwInputFrag!!.show(getParentFragmentManager(), "dialog")
-                return true
+                if (pwInputFrag != null && !parentFragmentManager.isStateSaved &&
+                    parentFragmentManager.findFragmentByTag("dialog") == null) {
+                    pwInputFrag.show(parentFragmentManager, "dialog")
+                    return true
+                }
             }
         }
         return false
@@ -98,31 +87,10 @@ class VPNProfileList : ListFragment(), View.OnClickListener, StateListener {
     override fun setConnectedVPN(uuid: String?) {
     }
 
-    private fun startOrStopVPN(profile: VpnProfile) {
-        if (VpnStatus.isVPNActive() && profile.getUUIDString() == VpnStatus.getLastConnectedVPNProfile()) {
-            if (mLastIntent != null) {
-                startActivity(mLastIntent!!)
-            } else {
-                val disconnectVPN = Intent(getActivity(), DisconnectVPN::class.java)
-                startActivity(disconnectVPN)
-            }
-        } else {
-            startVPN(profile)
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setHasOptionsMenu(true)
         setListAdapter()
-
-        registerPermissionReceiver()
-    }
-
-    private fun registerPermissionReceiver() {
-        mPermReceiver = registerForActivityResult<String, Boolean>(
-            RequestPermission(),
-            ActivityResultCallback { result: Boolean? -> checkForNotificationPermission(requireView()) })
     }
 
     @RequiresApi(api = Build.VERSION_CODES.N_MR1)
@@ -234,8 +202,8 @@ class VPNProfileList : ListFragment(), View.OnClickListener, StateListener {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
             updateDynamicShortcuts()
         }
-        VpnStatus.addStateListener(this)
         defaultVPN = ProfileManager.getAlwaysOnVPN(requireContext())
+        VpnStatus.addStateListener(this)
     }
 
     override fun onPause() {
@@ -247,50 +215,7 @@ class VPNProfileList : ListFragment(), View.OnClickListener, StateListener {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        val v = inflater.inflate(R.layout.vpn_profile_list, container, false)
-
-        val newvpntext = v.findViewById<View?>(R.id.add_new_vpn_hint) as TextView
-        val importvpntext = v.findViewById<View?>(R.id.import_vpn_hint) as TextView
-
-        newvpntext.setText(
-            Html.fromHtml(
-                getString(R.string.add_new_vpn_hint),
-                MiniImageGetter(),
-                null
-            )
-        )
-        importvpntext.setText(
-            Html.fromHtml(
-                getString(R.string.vpn_import_hint),
-                MiniImageGetter(),
-                null
-            )
-        )
-
-        val fab_add = v.findViewById<View?>(R.id.fab_add) as ImageButton?
-        val fab_import = v.findViewById<View?>(R.id.fab_import) as ImageButton?
-        if (fab_add != null) fab_add.setOnClickListener(this)
-
-        if (fab_import != null) fab_import.setOnClickListener(this)
-
-        // TV builds show the minimal UI that already have the notification
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !((activity as BaseActivity).isAndroidTV))
-            checkForNotificationPermission(v)
-
-        return v
-    }
-
-    private fun checkForNotificationPermission(v: View) {
-        mPermissionView = v.findViewById<View>(R.id.notification_permission)
-        val permissionGranted =
-            (requireActivity().checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)
-        mPermissionView.setVisibility(if (permissionGranted) View.GONE else View.VISIBLE)
-
-        mPermissionView.setOnClickListener { view: View? ->
-            mPermReceiver.launch(
-                Manifest.permission.POST_NOTIFICATIONS
-            )
-        }
+        return inflater.inflate(R.layout.vpn_profile_list, container, false)
     }
 
     private fun setListAdapter() {
@@ -320,14 +245,14 @@ class VPNProfileList : ListFragment(), View.OnClickListener, StateListener {
     }
 
     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
-        menu.add(0, MENU_ADD_PROFILE, 0, R.string.menu_add_profile)
-            .setIcon(R.drawable.ic_menu_add)
+        menu.add(0, MENU_ADD_PROFILE, 1, R.string.menu_add_profile)
+            .setIcon(R.drawable.nav_add)
             .setAlphabeticShortcut('a')
             .setTitleCondensed(getActivity()!!.getString(R.string.add))
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
 
-        menu.add(0, MENU_IMPORT_PROFILE, 0, R.string.menu_import)
-            .setIcon(R.drawable.ic_menu_import)
+        menu.add(0, MENU_IMPORT_PROFILE, 2, R.string.menu_import)
+            .setIcon(R.drawable.nav_import)
             .setAlphabeticShortcut('i')
             .setTitleCondensed(getActivity()!!.getString(R.string.menu_import_short))
             .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
@@ -336,13 +261,13 @@ class VPNProfileList : ListFragment(), View.OnClickListener, StateListener {
             .setIcon(R.drawable.ic_sort)
             .setAlphabeticShortcut('s')
             .setTitleCondensed(getString(R.string.sort))
-            .setShowAsActionFlags(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+            .setShowAsActionFlags(MenuItem.SHOW_AS_ACTION_NEVER)
 
         menu.add(0, MENU_IMPORT_AS, 0, R.string.import_from_as)
             .setIcon(R.drawable.ic_menu_import_download)
             .setAlphabeticShortcut('p')
             .setTitleCondensed("Import AS")
-            .setShowAsActionFlags(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+            .setShowAsActionFlags(MenuItem.SHOW_AS_ACTION_NEVER)
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -383,13 +308,6 @@ class VPNProfileList : ListFragment(), View.OnClickListener, StateListener {
         return true
     }
 
-    override fun onClick(v: View) {
-        when (v.getId()) {
-            R.id.fab_import -> startImportConfigFilePicker()
-            R.id.fab_add -> onAddOrDuplicateProfile(null)
-        }
-    }
-
     private fun startImportConfigFilePicker(): Boolean {
         var startOldFileDialog = true
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT && !alwaysUseOldFileChooser(
@@ -424,7 +342,7 @@ class VPNProfileList : ListFragment(), View.OnClickListener, StateListener {
             entry.setSingleLine()
             entry.setContentDescription(getString(R.string.name_of_the_vpn_profile))
 
-            val dialog = AlertDialog.Builder(context)
+            val dialog = MaterialAlertDialogBuilder(context)
             if (mCopyProfile == null) dialog.setTitle(R.string.menu_add_profile)
             else {
                 dialog.setTitle(
@@ -536,16 +454,6 @@ class VPNProfileList : ListFragment(), View.OnClickListener, StateListener {
         startActivityForResult(vprefintent, EDIT_VPN_CONFIG)
     }
 
-    private fun startVPN(profile: VpnProfile) {
-        ProfileManager.saveProfile(getActivity(), profile)
-
-        val intent = Intent(getActivity(), LaunchVPN::class.java)
-        intent.putExtra(LaunchVPN.EXTRA_KEY, profile.getUUID().toString())
-        intent.putExtra(OpenVPNService.EXTRA_START_REASON, "main profile list")
-        intent.setAction(Intent.ACTION_MAIN)
-        startActivity(intent)
-    }
-
     internal class VpnProfileNameComparator : Comparator<VpnProfile?> {
         override fun compare(lhs: VpnProfile?, rhs: VpnProfile?): Int {
             if (lhs === rhs)  // Catches also both null
@@ -587,21 +495,16 @@ class VPNProfileList : ListFragment(), View.OnClickListener, StateListener {
 
             val profile = getListAdapter()!!.getItem(position) as VpnProfile
 
-            val titleview = v.findViewById<View>(R.id.vpn_list_item_left)
-            titleview.setOnClickListener(View.OnClickListener { v1: View? -> startOrStopVPN(profile) })
-
-            val settingsview = v.findViewById<View>(R.id.quickedit_settings)
-            settingsview.setOnClickListener(View.OnClickListener { view: View? -> editVPN(profile) })
-
+            v.setOnClickListener { editVPN(profile) }
             val subtitle = v.findViewById<TextView>(R.id.vpn_item_subtitle)
             val warningText = getWarningText(requireContext(), profile)
 
-            if (profile === defaultVPN) {
+            if (profile.uuidString == defaultVPN?.uuidString) {
                 if (warningText.length > 0) warningText.append(" ")
-                warningText.append(SpannableString("Default VPN"))
+                warningText.append(getString(R.string.profile_default_label))
             }
 
-            if (profile.getUUIDString() == VpnStatus.getLastConnectedVPNProfile()) {
+            if (VpnStatus.isVPNActive() && profile.getUUIDString() == VpnStatus.getLastConnectedVPNProfile()) {
                 subtitle.setText(mLastStatusMessage)
                 subtitle.setVisibility(View.VISIBLE)
             } else {
@@ -612,24 +515,6 @@ class VPNProfileList : ListFragment(), View.OnClickListener, StateListener {
 
 
             return v
-        }
-    }
-
-    internal inner class MiniImageGetter : Html.ImageGetter {
-        override fun getDrawable(source: String?): Drawable? {
-            var d: Drawable? = null
-            if ("ic_menu_add" == source) d = requireActivity().getResources()
-                .getDrawable(R.drawable.ic_menu_add_grey, requireActivity().getTheme())
-            else if ("ic_menu_archive" == source) d = requireActivity().getResources()
-                .getDrawable(R.drawable.ic_menu_import_grey, requireActivity().getTheme())
-
-
-            if (d != null) {
-                d.setBounds(0, 0, d.getIntrinsicWidth(), d.getIntrinsicHeight())
-                return d
-            } else {
-                return null
-            }
         }
     }
 

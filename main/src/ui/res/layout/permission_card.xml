@@ -1,0 +1,7 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:layout_marginBottom="10dp" android:padding="18dp" android:background="@drawable/soft_card" android:orientation="vertical">
+    <TextView android:id="@+id/permission_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:textAppearance="@style/TextAppearance.Material3.TitleMedium" />
+    <TextView android:id="@+id/permission_body" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textColor="?attr/colorOnSurfaceVariant" android:textAppearance="@style/TextAppearance.Material3.BodyMedium" />
+    <com.google.android.material.button.MaterialButton android:id="@+id/permission_button" style="@style/Widget.Material3.Button.TonalButton"
+        android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" />
+</LinearLayout>

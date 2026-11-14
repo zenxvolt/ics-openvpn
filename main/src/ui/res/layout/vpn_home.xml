@@ -1,0 +1,37 @@
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true">
+    <LinearLayout android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:paddingStart="16dp" android:paddingEnd="16dp" android:paddingTop="12dp" android:paddingBottom="12dp">
+        <LinearLayout android:orientation="vertical" android:gravity="center" android:padding="24dp"
+            android:background="@drawable/soft_card" android:layout_width="match_parent" android:layout_height="wrap_content">
+            <TextView android:id="@+id/home_state" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:background="@drawable/status_pill" android:paddingStart="16dp" android:paddingEnd="16dp" android:paddingTop="7dp" android:paddingBottom="7dp"
+                android:accessibilityLiveRegion="polite" android:gravity="center" android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
+                android:textColor="?attr/colorOnSecondaryContainer" />
+            <FrameLayout android:layout_width="144dp" android:layout_height="144dp" android:layout_marginTop="20dp" android:layout_marginBottom="20dp">
+                <View android:id="@+id/power_wave" android:layout_width="match_parent" android:layout_height="match_parent"
+                    android:importantForAccessibility="no" android:background="@drawable/power_halo" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/power_button"
+                    android:layout_width="104dp" android:layout_height="104dp" android:layout_gravity="center"
+                    android:padding="0dp" android:insetTop="0dp" android:insetBottom="0dp"
+                    app:cornerRadius="52dp" app:icon="@drawable/nav_power" app:iconSize="44dp"
+                    app:iconPadding="0dp" app:iconGravity="textStart" />
+            </FrameLayout>
+            <TextView android:id="@+id/home_profile" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:gravity="center" android:maxLines="2" android:ellipsize="end" android:textAppearance="@style/TextAppearance.Material3.TitleLarge" />
+            <TextView android:id="@+id/home_action" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="4dp" android:gravity="center" android:textColor="?attr/colorOnSurfaceVariant" android:textAppearance="@style/TextAppearance.Material3.BodyMedium" />
+        </LinearLayout>
+        <com.google.android.material.textfield.TextInputLayout android:id="@+id/profile_field_layout"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp"
+            android:hint="@string/profile_field" app:startIconDrawable="@drawable/nav_profiles">
+            <com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/profile_picker"
+                android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="none"
+                android:singleLine="true" android:ellipsize="end" />
+        </com.google.android.material.textfield.TextInputLayout>
+        <com.google.android.material.button.MaterialButton android:id="@+id/home_open_profiles"
+            style="@style/Widget.Material3.Button.TonalButton" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal" android:layout_marginTop="16dp" android:text="@string/home_manage" />
+    </LinearLayout>
+</ScrollView>

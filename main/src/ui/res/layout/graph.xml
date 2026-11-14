@@ -25,6 +25,8 @@
 
     <ListView
         android:id="@+id/graph_listview"
+        android:padding="12dp" android:clipToPadding="false"
+        android:divider="@android:color/transparent" android:dividerHeight="8dp"
         android:layout_above="@id/useLogScale"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />

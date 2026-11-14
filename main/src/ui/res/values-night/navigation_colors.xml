@@ -1,0 +1,15 @@
+<resources>
+    <color name="shell_primary">#B5C4FF</color>
+    <color name="shell_onprimary">#002980</color>
+    <color name="shell_primarycontainer">#1C409F</color>
+    <color name="shell_onprimarycontainer">#DCE2FF</color>
+    <color name="shell_secondarycontainer">#3D475C</color>
+    <color name="shell_onsecondarycontainer">#DCE2F4</color>
+    <color name="shell_surface">#121318</color>
+    <color name="shell_onsurface">#E4E2EB</color>
+    <color name="shell_onsurfacevariant">#C5C6D4</color>
+    <color name="shell_surfacecontainer">#1F2028</color>
+    <color name="shell_surfacecontainerlow">#1A1B22</color>
+    <color name="shell_surfacecontainerhigh">#2A2B34</color>
+    <color name="shell_outline">#90929F</color>
+</resources>

@@ -1,0 +1,5 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/go_home" android:icon="@drawable/nav_home" android:title="@string/home_label" />
+    <item android:id="@+id/go_profiles" android:icon="@drawable/nav_profiles" android:title="@string/vpn_list_title" />
+    <item android:id="@+id/go_settings" android:icon="@drawable/nav_settings" android:title="@string/generalsettings" />
+</menu>

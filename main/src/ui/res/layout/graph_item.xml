@@ -7,7 +7,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     xmlns:tools="http://schemas.android.com/tools"
-    android:padding="8dp">
+    android:background="@drawable/soft_card" android:padding="16dp">
 
     <TextView
         android:id="@+id/tvName"
@@ -19,7 +19,7 @@
         android:layout_marginLeft="4dp"
         android:layout_marginStart="4dp"
         tools:text="Medium Text"
-        android:textSize="16sp" />
+        android:textAppearance="@style/TextAppearance.Material3.TitleMedium" />
 
     <com.github.mikephil.charting.charts.LineChart
         android:layout_below="@id/tvName"

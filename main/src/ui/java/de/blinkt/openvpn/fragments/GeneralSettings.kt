@@ -22,6 +22,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.preference.*
 import de.blinkt.openvpn.BuildConfig
 import de.blinkt.openvpn.R
+import de.blinkt.openvpn.activities.MainActivity
 import de.blinkt.openvpn.activities.OpenSSLSpeed
 import de.blinkt.openvpn.api.ConfirmDialog.ANONYMOUS_PACKAGE
 import de.blinkt.openvpn.api.ExternalAppDatabase
@@ -70,13 +71,6 @@ class GeneralSettings : PreferenceFragmentCompat(), Preference.OnPreferenceClick
         val startOnBoot =
             findPreference<Preference>("restartvpnonboot") as CheckBoxPreference
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val vpn = VpnService()
-            if (vpn.isAlwaysOn)
-                /* This is not reliable when the VPN is not active */
-                startOnBoot.isChecked
-        }
-
         startOnBoot.onPreferenceChangeListener =
             Preference.OnPreferenceChangeListener { pref: Preference?, newValue: Any ->
                 if (newValue == true) {
@@ -113,6 +107,23 @@ class GeneralSettings : PreferenceFragmentCompat(), Preference.OnPreferenceClick
                 true
             }
 
+        val host = activity as? MainActivity
+        if (host != null && !host.isAndroidTV) {
+            fun addPage(titleId: Int, create: () -> androidx.fragment.app.Fragment) {
+                preferenceScreen.addPreference(Preference(requireContext()).apply {
+                    setTitle(titleId)
+                    isIconSpaceReserved = false
+                    setOnPreferenceClickListener {
+                        host.showSettingsPage(create())
+                        true
+                    }
+                })
+            }
+            if (SendDumpFragment.getLatestDump(requireContext()) != null)
+                addPage(R.string.crashdump) { SendDumpFragment() }
+            addPage(R.string.faq) { FaqFragment() }
+            addPage(R.string.about) { AboutFragment() }
+        }
         setClearApiSummary()
     }
 
@@ -144,8 +155,7 @@ class GeneralSettings : PreferenceFragmentCompat(), Preference.OnPreferenceClick
                 (requireActivity().checkSelfPermission(Manifest.permission.ACCESS_LOCAL_NETWORK) == PackageManager.PERMISSION_GRANTED)
 
         local_network_preference.isChecked = permissionGranted
-        if (permissionGranted)
-            local_network_preference.isEnabled = false
+        local_network_preference.isEnabled = !permissionGranted
 
         local_network_preference.onPreferenceChangeListener = Preference.OnPreferenceChangeListener { _, newValue ->
             if ( (newValue as Boolean)) {

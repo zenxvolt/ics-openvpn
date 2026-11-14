@@ -21,6 +21,7 @@
         <activity
                 android:exported="true"
                 android:name=".activities.MainActivity"
+                android:theme="@style/blinkt.shell"
                 tools:ignore="ExportedActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -47,6 +48,7 @@
 
         <activity
                 android:name=".activities.LogWindow"
+                android:theme="@style/blinkt.shell"
                 android:allowTaskReparenting="true"
                 android:label="@string/openvpn_log"
                 android:launchMode="singleTask" />
@@ -60,6 +62,7 @@
         <service
                 android:exported="true"
                 android:name=".OpenVPNTileService"
+                android:process=":openvpn"
                 android:icon="@drawable/ic_quick"
                 android:label="@string/qs_title"
                 android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"

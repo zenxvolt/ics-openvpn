@@ -1,0 +1,35 @@
+<resources>
+    <string name="home_label">Home</string>
+    <string name="brand_short">OpenVPN</string>
+    <string name="profile_field">VPN profile</string>
+    <string name="profile_random">Random profile</string>
+    <string name="home_inactive">Not connected</string>
+    <string name="home_empty">Add a profile to connect</string>
+    <string name="home_connect">Connect VPN</string>
+    <string name="home_disconnect">Disconnect VPN</string>
+    <string name="home_continue_auth">Continue sign-in</string>
+    <string name="home_manage">Open Profiles</string>
+    <string name="home_random_hint">A saved profile is chosen each time you connect.</string>
+    <string name="profile_empty_title">No saved profiles</string>
+    <string name="profile_empty_body">Create a profile or import an .ovpn file from your VPN provider.</string>
+    <string name="profile_default_label">Default VPN</string>
+    <string name="diagnostics_title">Connection activity</string>
+    <string name="section_log">Log</string>
+    <string name="setup_title">Set up OpenVPN</string>
+    <string name="setup_vpn">VPN connection</string>
+    <string name="setup_vpn_body">Allow OpenVPN to create a VPN connection on this device.</string>
+    <string name="setup_notify">Notifications</string>
+    <string name="setup_notify_body">Show connection status and sign-in requests.</string>
+    <string name="setup_lan">Local network</string>
+    <string name="setup_lan_body">Allow access if your VPN server is on a local network.</string>
+    <string name="setup_allow">Allow</string>
+    <string name="setup_allowed">Allowed</string>
+    <string name="setup_continue">Continue to Home</string>
+    <string name="tile_connecting">Connecting to %1$s…</string>
+    <string name="tile_stopping">Disconnecting VPN…</string>
+    <string name="tile_stop_failed">Could not disconnect VPN</string>
+    <string name="tile_forced">VPN connection is managed</string>
+    <string name="setup_unavailable">VPN approval is unavailable on this device</string>
+    <string name="tile_start_failed">Could not start VPN</string>
+    <string name="tile_confirm">Confirm the VPN connection</string>
+</resources>

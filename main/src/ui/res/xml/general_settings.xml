@@ -9,7 +9,7 @@
             android:key="app_behaviour"
             android:title="@string/appbehaviour">
         <CheckBoxPreference
-                android:defaultValue="true"
+                android:defaultValue="false"
                 android:key="showlogwindow"
                 android:singleLineTitle="false"
                 android:summary="@string/show_log_summary"
@@ -90,10 +90,9 @@
                 android:key="disableconfirmation"
                 android:singleLineTitle="false"
                 android:summary="@string/confirmations_summary"
-                android:title="@string/confirmations_title" />\
+                android:title="@string/confirmations_title" />
 
         <Preference
-                android:dependency=""
                 android:key="osslspeed"
                 android:persistent="false"
                 android:title="@string/osslspeedtest" />

@@ -71,7 +71,7 @@ public class VpnStatus {
 
     static final int MAXLOGENTRIES = 1000;
 
-    public static boolean isVPNActive() {
+    public synchronized static boolean isVPNActive() {
         return mLastLevel != ConnectionStatus.LEVEL_AUTH_FAILED && !(mLastLevel == ConnectionStatus.LEVEL_NOTCONNECTED);
     }
 
@@ -79,7 +79,7 @@ public class VpnStatus {
         return getLastCleanLogMessage(c, false);
     }
 
-    public static String getLastCleanLogMessage(Context c, boolean shortversion) {
+    public synchronized static String getLastCleanLogMessage(Context c, boolean shortversion) {
         String message = mLaststatemsg;
         switch (mLastLevel) {
             case LEVEL_CONNECTED:
@@ -150,7 +150,7 @@ public class VpnStatus {
     }
 
 
-    public static String getLastConnectedVPNProfile()
+    public synchronized static String getLastConnectedVPNProfile()
     {
         return mLastConnectedVPNUUID;
     }
@@ -438,10 +438,9 @@ public class VpnStatus {
     }
 
     synchronized static void newLogItem(LogItem logItem, boolean cachedLine, boolean enforceUnique) {
-        if (cachedLine) {
-            logbuffer.addFirst(logItem);
-        } else {
-            insertLogItemByLogTime(logItem, enforceUnique);
+        if (enforceUnique && logbuffer.contains(logItem)) return;
+        insertLogItemByLogTime(logItem);
+        if (!cachedLine) {
             if (mLogFileHandler != null) {
                 Message m = mLogFileHandler.obtainMessage(LogFileHandler.LOG_MESSAGE, logItem);
                 mLogFileHandler.sendMessage(m);
@@ -460,7 +459,7 @@ public class VpnStatus {
         }
     }
 
-    private static void insertLogItemByLogTime(LogItem logItem, boolean enforceUnique) {
+    private static void insertLogItemByLogTime(LogItem logItem) {
         /* Shortcut for the shortcut that it should be added at the
          * end to avoid traversing the list
          */
@@ -474,10 +473,6 @@ public class VpnStatus {
         long newItemLogTime = logItem.getLogtime();
         while(itr.hasNext()) {
             LogItem laterLogItem = itr.next();
-            if (enforceUnique && laterLogItem.equals(logItem))
-                /* Identical object found, ignore new item */
-                return;
-
             if (laterLogItem.getLogtime() > newItemLogTime) {
                 itr.previous();
                 itr.add(logItem);

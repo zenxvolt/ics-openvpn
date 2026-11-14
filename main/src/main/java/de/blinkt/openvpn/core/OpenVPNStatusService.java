@@ -61,7 +61,6 @@ public class OpenVPNStatusService extends Service implements VpnStatus.LogListen
 
         @Override
         public ParcelFileDescriptor registerStatusCallback(IStatusCallbacks cb) throws RemoteException {
-            final LogItem[] logbuffer = VpnStatus.getlogbuffer();
             if (mLastUpdateMessage != null)
                 sendUpdate(cb, mLastUpdateMessage);
 
@@ -71,26 +70,27 @@ public class OpenVPNStatusService extends Service implements VpnStatus.LogListen
                 new Thread("pushLogs") {
                     @Override
                     public void run() {
-                        DataOutputStream fd = new DataOutputStream(new ParcelFileDescriptor.AutoCloseOutputStream(pipe[1]));
-                        try {
+                        try (DataOutputStream fd = new DataOutputStream(new ParcelFileDescriptor.AutoCloseOutputStream(pipe[1]))) {
                             synchronized (VpnStatus.readFileLock) {
-                                if (!VpnStatus.readFileLog) {
+                                while (!VpnStatus.readFileLog) {
                                     VpnStatus.readFileLock.wait();
                                 }
                             }
-                        } catch (InterruptedException e) {
-                            VpnStatus.logException(e);
-                        }
-                        try {
-
-                            for (LogItem logItem : logbuffer) {
-                                byte[] bytes = logItem.getMarshaledBytes();
+                            for (LogItem logItem : VpnStatus.getlogbuffer()) {
+                                byte[] bytes;
+                                try {
+                                    bytes = logItem.getMarshaledBytes();
+                                } catch (java.nio.BufferOverflowException oversized) {
+                                    // The live callback can still deliver entries larger than the cache format.
+                                    continue;
+                                }
                                 fd.writeShort(bytes.length);
                                 fd.write(bytes);
                             }
                             // Mark end
                             fd.writeShort(0x7fff);
-                            fd.close();
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
                         } catch (IOException e) {
                             e.printStackTrace();
                         }

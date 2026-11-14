@@ -1,0 +1,35 @@
+<resources>
+    <string name="home_label">Home</string>
+    <string name="brand_short">OpenVPN</string>
+    <string name="profile_field">Profil VPN</string>
+    <string name="profile_random">Profil acak</string>
+    <string name="home_inactive">Tidak terhubung</string>
+    <string name="home_empty">Tambahkan profil untuk menghubungkan VPN</string>
+    <string name="home_connect">Hubungkan VPN</string>
+    <string name="home_disconnect">Putuskan VPN</string>
+    <string name="home_continue_auth">Lanjutkan autentikasi</string>
+    <string name="home_manage">Buka Profiles</string>
+    <string name="home_random_hint">Satu profil tersimpan dipilih setiap kali kamu terhubung.</string>
+    <string name="profile_empty_title">Belum ada profil</string>
+    <string name="profile_empty_body">Buat profil atau impor file .ovpn dari penyedia VPN kamu.</string>
+    <string name="profile_default_label">VPN bawaan</string>
+    <string name="diagnostics_title">Aktivitas koneksi</string>
+    <string name="section_log">Log</string>
+    <string name="setup_title">Siapkan OpenVPN</string>
+    <string name="setup_vpn">Koneksi VPN</string>
+    <string name="setup_vpn_body">Izinkan OpenVPN membuat koneksi VPN di perangkat ini.</string>
+    <string name="setup_notify">Notifikasi</string>
+    <string name="setup_notify_body">Tampilkan status koneksi dan permintaan autentikasi.</string>
+    <string name="setup_lan">Jaringan lokal</string>
+    <string name="setup_lan_body">Izinkan akses jika server VPN berada di jaringan lokal.</string>
+    <string name="setup_allow">Izinkan</string>
+    <string name="setup_allowed">Diizinkan</string>
+    <string name="setup_continue">Lanjut ke Home</string>
+    <string name="tile_connecting">Menghubungkan ke %1$s…</string>
+    <string name="tile_stopping">Memutus VPN…</string>
+    <string name="tile_stop_failed">VPN gagal diputus</string>
+    <string name="tile_forced">Koneksi VPN dikelola administrator</string>
+    <string name="setup_unavailable">Persetujuan VPN tidak tersedia di perangkat ini</string>
+    <string name="tile_start_failed">VPN gagal dimulai</string>
+    <string name="tile_confirm">Konfirmasi koneksi VPN</string>
+</resources>

@@ -2,7 +2,7 @@
 name: Build
 permissions:
   contents: read
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
@@ -12,13 +12,39 @@ jobs:
           target: [UiOvpn23, SkeletonOvpn2, UiOvpn2]
     name: "Release ${{ matrix.target }}"
     runs-on: ubuntu-latest
+    env:
+      BUILD_DIR: .
     steps:
       - name: Use debug signing
         run: mkdir -p ~/.gradle && echo -e "icsopenvpnDebugSign=true\norg.gradle.jvmargs=-Xmx2048M" > ~/.gradle/gradle.properties
       - name: Checkout the code
         uses: actions/checkout@v7
         with:
-          submodules: true
+          submodules: recursive
+      # GitHub source ZIPs omit native submodules and their gitlinks. Use the
+      # exact upstream revision of this archive to restore pinned dependencies.
+      - name: Check for native source
+        id: native
+        run: |
+          if [[ -f main/src/main/cpp/openvpn3/client/ovpncli.i ]]; then
+            echo "missing=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "missing=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Restore pinned native source for ZIP imports
+        if: steps.native.outputs.missing == 'true'
+        uses: actions/checkout@v7
+        with:
+          repository: schwabe/ics-openvpn
+          ref: 660901ce320539aec476bd04bd1999c396d5e778
+          submodules: recursive
+          path: .ci-base
+          persist-credentials: false
+      - name: Apply project sources to native checkout
+        if: steps.native.outputs.missing == 'true'
+        run: |
+          rsync -a --exclude='.git' --exclude='/.ci-base/' ./ .ci-base/
+          echo "BUILD_DIR=.ci-base" >> "$GITHUB_ENV"
       - name: set up JDK 25
         uses: actions/setup-java@v6
         with:
@@ -29,12 +55,16 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
       - name: Build the app
-        run: ./gradlew assemble${{ matrix.target }}Release
+        working-directory: ${{ env.BUILD_DIR }}
+        run: bash gradlew assemble${{ matrix.target }}Release
       - name: Run Unit tests
-        run: ./gradlew -PtestBuildType=release test${{ matrix.target }}ReleaseUnitTest
+        working-directory: ${{ env.BUILD_DIR }}
+        run: bash gradlew -PtestBuildType=release test${{ matrix.target }}ReleaseUnitTest
 
       - name: Archive apk artifact
         uses: actions/upload-artifact@v4
         with:
           name: build-${{matrix.target}}-release-apk
-          path: main/build/outputs/apk/**/*universal*.apk
+          path: ${{ env.BUILD_DIR }}/main/build/outputs/apk/**/*.apk
+          include-hidden-files: true
+          if-no-files-found: error

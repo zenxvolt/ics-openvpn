@@ -59,7 +59,6 @@ public class GraphFragment extends Fragment implements VpnStatus.ByteCountListen
     private int mColourPoint;
     private int mTextColour;
 
-    private long firstTs;
     private TextView mSpeedStatus;
     private boolean mLogScale;
 
@@ -140,29 +139,19 @@ public class GraphFragment extends Fragment implements VpnStatus.ByteCountListen
 
     @Override
     public void updateByteCount(long in, long out, long diffIn, long diffOut) {
-        if (firstTs == 0)
-            firstTs = System.currentTimeMillis() / 100;
-
-        long now = (System.currentTimeMillis() / 100) - firstTs;
-        int interval = OpenVPNManagement.mBytecountInterval * 10;
-        Resources res = getActivity().getResources();
-
-        final String netstat = String.format(getString(R.string.statusline_bytecount),
-                humanReadableByteCount(in, false, res),
-                humanReadableByteCount(diffIn / OpenVPNManagement.mBytecountInterval, true, res),
-                humanReadableByteCount(out, false, res),
-                humanReadableByteCount(diffOut / OpenVPNManagement.mBytecountInterval, true, res));
-
-        getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mHandler.removeCallbacks(triggerRefresh);
-                mSpeedStatus.setText(netstat);
-                mChartAdapter.notifyDataSetChanged();
-                mHandler.postDelayed(triggerRefresh, OpenVPNManagement.mBytecountInterval * 1500);
-            }
+        mHandler.post(() -> {
+            if (!isResumed() || getView() == null) return;
+            Resources res = getResources();
+            String status = getString(R.string.statusline_bytecount,
+                    humanReadableByteCount(in, false, res),
+                    humanReadableByteCount(diffIn / OpenVPNManagement.mBytecountInterval, true, res),
+                    humanReadableByteCount(out, false, res),
+                    humanReadableByteCount(diffOut / OpenVPNManagement.mBytecountInterval, true, res));
+            mSpeedStatus.setText(status);
+            mChartAdapter.notifyDataSetChanged();
+            mHandler.removeCallbacks(triggerRefresh);
+            mHandler.postDelayed(triggerRefresh, OpenVPNManagement.mBytecountInterval * 1500);
         });
-
     }
 
     private class ChartDataAdapter extends ArrayAdapter<Integer> {
@@ -364,9 +353,9 @@ public class GraphFragment extends Fragment implements VpnStatus.ByteCountListen
             }
             if (lastts < now - interval) {
 
-                if (now - lastts > 2 * interval * 1000) {
-                    dataIn.add(new Entry((lastts - firstTimestamp + interval * 1000) / 100f, zeroValue));
-                    dataOut.add(new Entry((lastts - firstTimestamp + interval * 1000) / 100f, zeroValue));
+                if (now - lastts > 2 * interval) {
+                    dataIn.add(new Entry((lastts - firstTimestamp + interval) / 100f, zeroValue));
+                    dataOut.add(new Entry((lastts - firstTimestamp + interval) / 100f, zeroValue));
                 }
 
                 dataIn.add(new Entry((now - firstTimestamp) / 100, zeroValue));

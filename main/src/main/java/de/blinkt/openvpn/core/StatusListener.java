@@ -36,7 +36,7 @@ public class StatusListener implements VpnStatus.LogListener, VpnStatus.ProfileN
     private final IStatusCallbacks mCallback = new IStatusCallbacks.Stub() {
         @Override
         public void newLogItem(LogItem item) throws RemoteException {
-            VpnStatus.newLogItem(item);
+            VpnStatus.newLogItemIfUnique(item);
         }
 
         @Override
@@ -90,23 +90,10 @@ public class StatusListener implements VpnStatus.LogListener, VpnStatus.ProfileN
                     VpnStatus.setConnectedVPNProfile(serviceStatus.getLastConnectedVPN());
                     VpnStatus.setTrafficHistory(serviceStatus.getTrafficHistory());
                     ParcelFileDescriptor pfd = serviceStatus.registerStatusCallback(mCallback);
-                    DataInputStream fd = new DataInputStream(new ParcelFileDescriptor.AutoCloseInputStream(pfd));
-
-                    /* notify the backend :openvpn process of changes in profiles */
                     VpnStatus.addProfileStateListener(StatusListener.this);
-
-                    short len = fd.readShort();
-                    byte[] buf = new byte[65336];
-                    while (len != 0x7fff) {
-                        fd.readFully(buf, 0, len);
-                        LogItem logitem = new LogItem(buf, len);
-                        VpnStatus.newLogItem(logitem, false);
-                        len = fd.readShort();
-                    }
-                    fd.close();
-                    pfd.close();
-
-
+                    // The writer waits for the VPN process to finish loading its cache.
+                    // Keep navigation and state callbacks responsive during replay.
+                    new Thread(() -> readLogHistory(pfd), "read-openvpn-logs").start();
                 } else {
                     VpnStatus.initLogCache(mCacheDir);
                     /* Set up logging to Logcat with a context) */
@@ -116,7 +103,7 @@ public class StatusListener implements VpnStatus.LogListener, VpnStatus.ProfileN
                     }
                 }
 
-            } catch (RemoteException | IOException e) {
+            } catch (RemoteException e) {
                 e.printStackTrace();
                 VpnStatus.logException(e);
             }
@@ -130,6 +117,20 @@ public class StatusListener implements VpnStatus.LogListener, VpnStatus.ProfileN
         }
 
     };
+    private void readLogHistory(ParcelFileDescriptor pipe) {
+        try (DataInputStream input = new DataInputStream(new ParcelFileDescriptor.AutoCloseInputStream(pipe))) {
+            byte[] buffer = new byte[0x7fff];
+            int length;
+            while ((length = input.readUnsignedShort()) != 0x7fff) {
+                if (length > buffer.length) throw new IOException("Invalid log record length");
+                input.readFully(buffer, 0, length);
+                VpnStatus.newLogItemIfUnique(new LogItem(buffer, length));
+            }
+        } catch (IOException | RuntimeException error) {
+            VpnStatus.logException(error);
+        }
+    }
+
     private Context mContext;
     private String pkgName = "(packageName not yet set)";
 

@@ -48,7 +48,7 @@ class VPNPreferences : BaseActivity(), VpnStatus.ProfileNotifyListener {
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
-        outState.putString(intent.getStringExtra("$packageName.profileUUID"), mProfileUUID)
+        outState.putString("$packageName.profileUUID", mProfileUUID)
         super.onSaveInstanceState(outState)
     }
 
@@ -59,6 +59,7 @@ class VPNPreferences : BaseActivity(), VpnStatus.ProfileNotifyListener {
         if (mProfile == null || mProfile!!.profileDeleted) {
             setResult(VPNProfileList.RESULT_VPN_DELETED)
             finish()
+            return
         }
         if (mProfile!!.mTemporaryProfile) {
             Toast.makeText(this, "Temporary profiles cannot be edited", Toast.LENGTH_LONG).show()

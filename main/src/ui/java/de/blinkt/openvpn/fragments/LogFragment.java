@@ -146,7 +146,7 @@ public class LogFragment extends ListFragment implements StateListener, SeekBar.
         public static final int TIME_FORMAT_NONE = 0;
         public static final int TIME_FORMAT_SHORT = 1;
         public static final int TIME_FORMAT_ISO = 2;
-        private static final int MAX_STORED_LOG_ENTRIES = 1000;
+
 
         private Vector<LogItem> allEntries = new Vector<>();
 
@@ -161,12 +161,11 @@ public class LogFragment extends ListFragment implements StateListener, SeekBar.
 
 
         public LogWindowListAdapter() {
-            initLogBuffer();
-            if (mHandler == null) {
-                mHandler = new Handler(this);
+            mHandler = new Handler(android.os.Looper.getMainLooper(), this);
+            synchronized (VpnStatus.class) {
+                initLogBuffer();
+                VpnStatus.addLogListener(this);
             }
-
-            VpnStatus.addLogListener(this);
         }
 
 
@@ -319,30 +318,16 @@ public class LogFragment extends ListFragment implements StateListener, SeekBar.
 
         @Override
         public void newLog(LogItem logMessage) {
-            Message msg = Message.obtain();
-            assert (msg != null);
-            msg.what = MESSAGE_NEWLOG;
-            Bundle bundle = new Bundle();
-            bundle.putParcelable("logmessage", logMessage);
-            msg.setData(bundle);
-            mHandler.sendMessage(msg);
+            // Coalesce history replay and bursts of incoming messages on the UI thread.
+            if (!mHandler.hasMessages(MESSAGE_NEWLOG))
+                mHandler.sendEmptyMessage(MESSAGE_NEWLOG);
         }
 
         @Override
         public boolean handleMessage(Message msg) {
-            // We have been called
-            if (msg.what == MESSAGE_NEWLOG) {
-
-                LogItem logMessage = msg.getData().getParcelable("logmessage");
-                if (addLogMessage(logMessage))
-                    for (DataSetObserver observer : observers) {
-                        observer.onChanged();
-                    }
-            } else if (msg.what == MESSAGE_CLEARLOG) {
-                for (DataSetObserver observer : observers) {
-                    observer.onInvalidated();
-                }
+            if (msg.what == MESSAGE_NEWLOG || msg.what == MESSAGE_CLEARLOG) {
                 initLogBuffer();
+                for (DataSetObserver observer : observers) observer.onChanged();
             } else if (msg.what == MESSAGE_NEWTS) {
                 for (DataSetObserver observer : observers) {
                     observer.onInvalidated();
@@ -365,31 +350,6 @@ public class LogFragment extends ListFragment implements StateListener, SeekBar.
                 if (li.getVerbosityLevel() <= mLogLevel ||
                         mLogLevel == VpnProfile.MAXLOGLEVEL)
                     currentLevelEntries.add(li);
-            }
-        }
-
-        /**
-         * @param logmessage
-         * @return True if the current entries have changed
-         */
-        private boolean addLogMessage(LogItem logmessage) {
-            allEntries.add(logmessage);
-
-            if (allEntries.size() > MAX_STORED_LOG_ENTRIES) {
-                Vector<LogItem> oldAllEntries = allEntries;
-                allEntries = new Vector<LogItem>(allEntries.size());
-                for (int i = 50; i < oldAllEntries.size(); i++) {
-                    allEntries.add(oldAllEntries.elementAt(i));
-                }
-                initCurrentMessages();
-                return true;
-            } else {
-                if (logmessage.getVerbosityLevel() <= mLogLevel) {
-                    currentLevelEntries.add(logmessage);
-                    return true;
-                } else {
-                    return false;
-                }
             }
         }
 
@@ -683,9 +643,10 @@ public class LogFragment extends ListFragment implements StateListener, SeekBar.
 
 
     @Override
-    public void onDestroy() {
+    public void onDestroyView() {
         VpnStatus.removeLogListener(ladapter);
-        super.onDestroy();
+        ladapter.mHandler.removeCallbacksAndMessages(null);
+        super.onDestroyView();
     }
 
 }

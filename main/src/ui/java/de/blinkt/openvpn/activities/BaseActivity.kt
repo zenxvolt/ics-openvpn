@@ -12,7 +12,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.Window
 import android.widget.Toast
-import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -40,8 +39,16 @@ abstract class BaseActivity : AppCompatActivity() {
         if (isAndroidTV) {
             requestWindowFeature(Window.FEATURE_OPTIONS_PANEL)
         }
-        this.enableEdgeToEdge(SystemBarStyle.dark(R.color.primary_dark))
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+    }
+
+    protected fun applyShellInsets(rootId: Int) {
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(rootId)) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
     }
 
     fun setUpEdgeEdgeInsetsListener(
